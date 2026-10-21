@@ -7,6 +7,7 @@ Controls:
     1-8            select a plant card
     left click     place the selected plant on the lawn, or collect a sun
     right click    cancel the current selection
+    P              pause/resume the battle (Enter/Esc also resume while paused)
     Enter          continue the adventure after a win
     R              retry the current level after win or loss
     Esc            return to the menu (quit from the menu)

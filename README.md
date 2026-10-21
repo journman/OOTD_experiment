@@ -34,6 +34,7 @@ Windows 10/11 64 位：解压后双击对应 `.exe`；不需要安装 Python、p
 - 主菜单：点击冒险模式继续闯关，或点击选择关卡打开地图。
 - 选卡：点击植物加入阵容，点击已选卡片移除；`A` 快速选满，`Enter` 开始。
 - 战斗：`1`–`8` 选择卡片；左键种植或收集阳光；右键取消选择。五行草坪从第一关起全部可种，选卡后显示格子与落点预览；冷却、阳光不足和格子占用会显示原因。
+- 战斗中按 `P` 或点击右下角暂停按钮，暂停阳光、冷却和敌人行动；`P` / `Enter` / `Esc` 或“继续战斗”恢复。暂停时可按 `I` 查看图鉴，返回后仍保持暂停。
 - 通关：点击“下一关”或按 `Enter` 继续；`R` 重试当前关卡。
 - `F` 切换全屏；`Esc` 退出全屏 / 返回庭院，主菜单按 `Esc` 退出。
 
@@ -52,6 +53,8 @@ Windows 10/11 64 位：解压后双击对应 `.exe`；不需要安装 Python、p
 - 点击右下角“水果与怪物图鉴”或按 `I` 查看名称、攻击点数、怪物速度与生命值；查看时暂停战斗，`I` / `Esc` 或返回按钮继续。
 - 击杀怪物获得金币、累计积分和击杀数；到达终点的怪物只扣萝卜生命，不发奖励。建塔花费金币，不扣累计积分；积分在本次两关挑战内累计，重开后清零。
 - 主菜单点击“开始挑战”或按 `Enter` 出发；`1`–`3` 或点击卡片选择防御水果，左键在空草地建造；路径和萝卜位置不能建造，右键取消选择。
+- 选塔后显示落点预览和攻击范围，绿色表示可以建造，红色表示不可建造；点击失败时会提示道路、萝卜位置、格子占用或金币不足。未选塔时，将鼠标移到已有防御塔上也可查看射程。
+- 下方信息栏显示下一波倒计时、建造提示和漏怪警告；水果塔、卡片、图鉴和预览使用统一绘制的图标。
 - `P` 或右下角暂停按钮暂停，`P` / `Enter` 或“继续防守”恢复。战斗中 `Esc` 暂停，暂停或结算界面 `Esc` 返回主菜单；主菜单 `Esc` 退出。
 - 第一关“花园小径”结束后显示关卡结算，点击按钮或按 `Enter` 前往“林间转角”。第二关使用新的路线和场景配色；存活防御塔按原价回收，萝卜恢复生命，金币、积分和击杀数继续累计。
 - 胜负界面点击“重新挑战”或按 `R` / `Enter` 从第一关重新开始；只有明确点击按钮才会重开。保卫萝卜本轮挑战进度不写入存档，退出后重新挑战。
@@ -84,6 +87,7 @@ python defend_carrot/main.py
 ```bash
 python plants_vs_zombies/tests/test_adventure_flow.py
 python plants_vs_zombies/tests/test_ui_flow.py
+python plants_vs_zombies/tests/test_pause.py
 python plants_vs_zombies/tests/test_progress.py
 python plants_vs_zombies/tests/test_packaged_save.py
 python plants_vs_zombies/tests/test_gameplay_revision.py
@@ -92,6 +96,7 @@ python plants_vs_zombies/tests/test_expansion.py
 python defend_carrot/tests/test_smoke.py
 python defend_carrot/tests/test_rules.py
 python defend_carrot/tests/test_ui_flow.py
+python defend_carrot/tests/test_placement.py
 ```
 
 完整植物大战僵尸战斗测试可通过 `python tools/test_source.py` 运行，测试存档隔离在临时目录中。

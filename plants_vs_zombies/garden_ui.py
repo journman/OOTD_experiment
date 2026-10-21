@@ -46,6 +46,9 @@ MAP_PREV_RECT = pygame.Rect(171, 25, 85, 34)
 MAP_NEXT_RECT = pygame.Rect(560, 25, 85, 34)
 SEED_PREV_RECT = pygame.Rect(46, 159, 70, 32)
 SEED_NEXT_RECT = pygame.Rect(448, 159, 70, 32)
+PAUSE_BUTTON_RECT = pygame.Rect(678, 570, 110, 27)
+PAUSE_RESUME_RECT = pygame.Rect(255, 300, 290, 48)
+PAUSE_MENU_RECT = pygame.Rect(255, 375, 290, 43)
 
 
 class GardenUI:
@@ -489,7 +492,17 @@ class GardenUI:
             text += "  ·  1–8 选卡 / 点击阳光收集"
         if g.notice_timer > 0:
             text = g.notice
-        panel = pygame.Surface((780, 27), pygame.SRCALPHA)
+        panel = pygame.Surface((650, 27), pygame.SRCALPHA)
         panel.fill((20, 29, 18, 205))
         self.canvas.blit(panel, (10, 570))
-        self.text(text, (400, 583), 14, (255, 225, 150) if g.notice_timer > 0 else CREAM)
+        self.text(text, (335, 583), 14, (255, 225, 150) if g.notice_timer > 0 else CREAM)
+        self.button(PAUSE_BUTTON_RECT, '暂停 [P]', size=14)
+
+    def draw_pause(self):
+        self.shade(160)
+        self.panel(pygame.Rect(150, 165, 500, 325))
+        self.text('防线已暂停', (400, 218), 32, GREEN, bold=True)
+        self.text('阳光、冷却和敌人都会停在当前进度', (400, 265), 17, INK)
+        self.button(PAUSE_RESUME_RECT, '继续战斗  [P / Enter]', size=22)
+        self.button(PAUSE_MENU_RECT, '结束本局，返回庭院', size=19)
+        self.text('I 查看图鉴  ·  Esc 继续  ·  F 全屏', (400, 455), 15, INK)

@@ -31,6 +31,7 @@ from typing import List, Optional, TYPE_CHECKING
 import pygame
 
 import config as C
+from art import fruit_image
 
 if TYPE_CHECKING:
     from game import Game
@@ -107,23 +108,16 @@ class Fruit(Entity):
     def fire(self, target: "Monster", game: "Game") -> None:
         ...
 
-    def _body_color(self):
-        return (255, 255, 255) if self._hit_flash > 0 else self.color
-
     def draw(self, surface: pygame.Surface) -> None:
         cx, cy = int(self.x), int(self.y)
-        pygame.draw.circle(surface, self._body_color(), (cx, cy), 15)
-        pygame.draw.circle(surface, (40, 70, 40), (cx, cy), 15, 2)
-        self.draw_detail(surface)
+        sprite = fruit_image(self.kind, flash=self._hit_flash > 0)
+        surface.blit(sprite, sprite.get_rect(center=(cx, cy)))
         if self.hp < self.max_hp:
             w = 30
             x, y = cx - w // 2, cy - 24
             pygame.draw.rect(surface, C.COL_HP_BG, (x, y, w, 4))
             pygame.draw.rect(surface, C.COL_HP_FG,
                              (x, y, int(w * self.hp / self.max_hp), 4))
-
-    def draw_detail(self, surface: pygame.Surface) -> None:
-        ...
 
 
 class Apple(Fruit):
@@ -134,11 +128,6 @@ class Apple(Fruit):
         game.bullets.append(Bullet(self.x, self.y, target, self.damage,
                                    (255, 210, 210)))
 
-    def draw_detail(self, surface):
-        cx, cy = int(self.x), int(self.y)
-        pygame.draw.line(surface, (70, 110, 50), (cx, cy - 14), (cx + 4, cy - 20), 2)
-        pygame.draw.circle(surface, (120, 180, 90), (cx + 7, cy - 19), 4)
-
 
 class Orange(Fruit):
     def __init__(self, col, row):
@@ -147,11 +136,6 @@ class Orange(Fruit):
     def fire(self, target, game):
         game.bullets.append(Bullet(self.x, self.y, target, self.damage,
                                    (255, 230, 170)))
-
-    def draw_detail(self, surface):
-        cx, cy = int(self.x), int(self.y)
-        pygame.draw.circle(surface, (255, 200, 120), (cx - 4, cy - 3), 4)
-        pygame.draw.circle(surface, (255, 200, 120), (cx + 4, cy + 3), 4)
 
 
 class Melon(Fruit):
@@ -165,11 +149,6 @@ class Melon(Fruit):
     def fire(self, target, game):
         game.bullets.append(Bullet(self.x, self.y, target, self.damage,
                                    (200, 255, 200), splash=self.SPLASH))
-
-    def draw_detail(self, surface):
-        cx, cy = int(self.x), int(self.y)
-        pygame.draw.arc(surface, (40, 120, 60),
-                        pygame.Rect(cx - 14, cy - 14, 28, 28), 0, math.pi, 3)
 
 
 # ------------------------------------------------------------------ monsters

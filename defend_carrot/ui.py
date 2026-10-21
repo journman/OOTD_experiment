@@ -1,9 +1,12 @@
 """Chinese typography and menu/pause/result screens for the fruit defense game."""
 import os
+import math
 
 import pygame
 
 import config as C
+from art import fruit_image
+from entities import tile_center
 
 
 def load_font(size):
@@ -37,6 +40,52 @@ class GameUI:
         pygame.draw.rect(screen, (89, 132, 70) if hovered else (63, 102, 55), rect, border_radius=10)
         pygame.draw.rect(screen, (191, 187, 122), rect, 2, border_radius=10)
         self.text(label, rect.center, 22)
+
+    def draw_placement(self, pos=None):
+        g = self.game
+        cell = g.field_cell(pygame.mouse.get_pos() if pos is None else pos)
+        if cell is None:
+            return
+        col, row = cell
+        tower = g.fruit_at(col, row)
+        if g.selected is None and tower is None:
+            return
+        kind = g.selected if g.selected else tower.kind
+        valid = not g.building_error(cell) if g.selected else True
+        color = (127, 235, 149) if valid else (255, 121, 101)
+        x, y = tile_center(col, row)
+        y -= C.HUD_H
+        overlay = pygame.Surface((C.FIELD_W, C.FIELD_H), pygame.SRCALPHA)
+        radius = round(C.FRUITS[kind]['rng'] * C.TILE)
+        pygame.draw.circle(overlay, (*color, 32), (x, y), radius)
+        pygame.draw.circle(overlay, (*color, 170), (x, y), radius, 2)
+        rect = pygame.Rect(col * C.TILE, row * C.TILE, C.TILE, C.TILE)
+        pygame.draw.rect(overlay, (*color, 55), rect, border_radius=5)
+        pygame.draw.rect(overlay, (*color, 230), rect, 2, border_radius=5)
+        if g.selected:
+            ghost = fruit_image(kind).copy()
+            ghost.set_alpha(150)
+            overlay.blit(ghost, ghost.get_rect(center=(x, y)))
+        g.screen.blit(overlay, (0, C.HUD_H))
+
+    def draw_battle_info(self, pos=None):
+        g = self.game
+        if g.notice_timer > 0:
+            message = g.notice
+        elif g.selected:
+            cell = g.field_cell(pygame.mouse.get_pos() if pos is None else pos)
+            reason = g.building_error(cell) if cell else "移动到草地查看射程，右键取消"
+            message = f"{C.FRUITS[g.selected]['label']} · {reason or '可建造，左键确认'}"
+        elif g.wave_timer < 0:
+            message = f"下一波还有 {math.ceil(-g.wave_timer)} 秒 · 提前布置防线"
+        else:
+            message = '点击卡片选塔 · 鼠标停在防御塔上查看射程'
+        # The last map row remains unobstructed; feedback sits above the cards.
+        panel = pygame.Surface((780, 25), pygame.SRCALPHA)
+        panel.fill((20, 37, 27, 220))
+        g.screen.blit(panel, (10, C.SCREEN_H - C.SHOP_H + 4))
+        self.text(message, (400, C.SCREEN_H - C.SHOP_H + 16), 15,
+                  (255, 218, 145) if g.notice_timer > 0 else (235, 244, 211))
 
     def draw_overlay(self):
         g = self.game

@@ -26,7 +26,8 @@ from newplants import NEW_PLANT_CLASSES
 from garden_ui import (GardenUI, mode_rect, level_rect, BACK_RECT,
                        CHOOSER_BACK_RECT, CHOOSER_START_RECT,
                        RESULT_PRIMARY_RECT, RESULT_MAP_RECT, PLANT_NAMES,
-                       MAP_PREV_RECT, MAP_NEXT_RECT, SEED_PREV_RECT, SEED_NEXT_RECT)
+                       MAP_PREV_RECT, MAP_NEXT_RECT, SEED_PREV_RECT, SEED_NEXT_RECT,
+                       PAUSE_BUTTON_RECT, PAUSE_RESUME_RECT, PAUSE_MENU_RECT)
 from entities import (
     CherryBomb, Explosion, Jalapeno, LaneFire, Peashooter, Plant, PotatoMine,
     Projectile, Repeater, SnowPea, Sun, Sunflower, Threepeater, WallNut,
@@ -431,6 +432,25 @@ class Game:
                 self.almanac.handle_event(event, pos)
             return
 
+        if event.type == pygame.KEYDOWN and event.key == pygame.K_p:
+            if self.state in ("playing", "paused"):
+                self.state = "paused" if self.state == "playing" else "playing"
+            return
+        if self.state == "paused":
+            if event.type == pygame.KEYDOWN:
+                if event.key in (pygame.K_ESCAPE, pygame.K_RETURN):
+                    self.state = "playing"
+                elif event.key == pygame.K_f:
+                    self.toggle_fullscreen()
+            elif event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
+                pos = self._to_canvas(event.pos)
+                if PAUSE_RESUME_RECT.collidepoint(pos):
+                    self.state = "playing"
+                elif PAUSE_MENU_RECT.collidepoint(pos):
+                    self.state = "menu"
+                    self.selected = None
+            return
+
         if event.type == pygame.KEYDOWN:
             if event.key in (pygame.K_LEFT, pygame.K_RIGHT) and self.state in ("choosing", "levelselect"):
                 self.turn_page(-1 if event.key == pygame.K_LEFT else 1)
@@ -490,7 +510,10 @@ class Game:
             self.selected = None
 
     def _on_click(self, pos) -> None:
-        if self.state != "playing":
+        if self.state != "playing" or self.almanac.opened:
+            return
+        if PAUSE_BUTTON_RECT.collidepoint(pos):
+            self.state = "paused"
             return
         # 1) Collect a sun if one was clicked.
         for s in reversed(self.suns):
@@ -693,7 +716,9 @@ class Game:
             self._draw_hud()
             if self.state == "playing":
                 self.ui.draw_battle_info()
-            if self.state != "playing":
+            if self.state == "paused":
+                self.ui.draw_pause()
+            elif self.state != "playing":
                 self._draw_overlay()
         self._present()
 

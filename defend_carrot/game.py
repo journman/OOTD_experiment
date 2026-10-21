@@ -17,6 +17,7 @@ import pygame
 import config as C
 from guide import FieldGuide
 from ui import GameUI, load_font
+from art import fruit_image
 from entities import (
     Apple, Bat, Bullet, Carrot, Effect, Fruit, Golem, Melon, Monster, Orange,
     Rock, RockThrower, Slime, tile_center,
@@ -77,6 +78,8 @@ class Game:
         for name in ("fruits", "monsters", "bullets", "rocks", "effects"):
             setattr(self, name, [])
         self.selected = None
+        self.notice = ""
+        self.notice_timer = 0.0
         self.wave_index = 0
         self._load_wave(0)
         self.wave_timer = -2.0       # short grace before the first wave
@@ -106,6 +109,7 @@ class Game:
 
     def damage_carrot(self, amount: float) -> None:
         self.carrot.take_damage(amount)
+        self.show_notice(f"有怪物突破防线！萝卜失去 {amount:g} 点生命")
         if not self.carrot.alive:
             self.state = "lost"
 
@@ -114,6 +118,7 @@ class Game:
         if self.state != "playing" or self.guide_open:
             return
         self.elapsed += dt
+        self.notice_timer = max(0.0, self.notice_timer - dt)
         self._update_waves(dt)
         for group in (self.fruits, self.monsters, self.bullets,
                       self.rocks, self.effects):
@@ -245,26 +250,58 @@ class Game:
                 return
         if self.selected is None:
             return
-        col = pos[0] // C.TILE
-        row = (pos[1] - C.HUD_H) // C.TILE
-        if not self.can_build(col, row):
+        cell = self.field_cell(pos)
+        reason = self.building_error(cell)
+        if reason:
+            self.show_notice(reason)
             return
+        col, row = cell
         cost = C.FRUITS[self.selected]["cost"]
-        if self.coins < cost:
-            return
         self.coins -= cost
         self.fruits.append(FRUIT_CLASSES[self.selected](col, row))
+        self.notice_timer = 0.0
         self.selected = None
+
+    def field_cell(self, pos):
+        col = int(pos[0] // C.TILE)
+        row = int((pos[1] - C.HUD_H) // C.TILE)
+        if 0 <= col < C.GRID_COLS and 0 <= row < C.GRID_ROWS:
+            return col, row
+        return None
+
+    def building_error(self, cell):
+        if cell is None:
+            return "请在草地区域建造"
+        if self.selected not in C.FRUITS:
+            return "请先选择下方的水果卡片"
+        if cell == self.carrot_tile:
+            return "这里是萝卜的位置，不能建造"
+        if cell in self.path_cells:
+            return "怪物道路上不能建造"
+        if self.fruit_at(*cell):
+            return "这里已经有防御塔了"
+        shortfall = C.FRUITS[self.selected]['cost'] - self.coins
+        if shortfall > 0:
+            return f"金币不足，还差 {shortfall}"
+        return ""
+
+    def show_notice(self, message):
+        self.notice = message
+        self.notice_timer = 2.5
 
     # ------------------------------------------------------------------ draw
     def draw(self) -> None:
         self.screen.fill(C.LEVELS[self.level_index]["grass"][0])
         self._draw_field()
+        if self.state == "playing" and not self.guide_open:
+            self.ui.draw_placement()
         for e in (self.fruits + self.monsters + self.bullets + self.rocks
                   + [self.carrot] + self.effects):
             e.draw(self.screen)
         self._draw_hud()
         self._draw_shop()
+        if self.state == "playing" and not self.guide_open:
+            self.ui.draw_battle_info()
         if self.state != "playing":
             self.ui.draw_overlay()
         else:
@@ -289,7 +326,7 @@ class Game:
 
     def _card_rect(self, index: int) -> pygame.Rect:
         x = 12 + index * 150
-        return pygame.Rect(x, C.SCREEN_H - C.SHOP_H + 8, 140, C.SHOP_H - 18)
+        return pygame.Rect(x, C.SCREEN_H - C.SHOP_H + 36, 140, C.SHOP_H - 46)
 
     def _draw_shop(self) -> None:
         pygame.draw.rect(self.screen, C.COL_SHOP_BG,
@@ -302,8 +339,8 @@ class Game:
                    else C.COL_CARD if affordable else C.COL_CARD_OFF)
             pygame.draw.rect(self.screen, col, rect, border_radius=8)
             pygame.draw.rect(self.screen, (70, 70, 70), rect, 2, border_radius=8)
-            pygame.draw.circle(self.screen, spec["color"],
-                               (rect.x + 26, rect.y + 34), 17)
+            sprite = fruit_image(kind)
+            self.screen.blit(sprite, sprite.get_rect(center=(rect.x + 26, rect.y + 34)))
             name = self.small_font.render(f"{i + 1}. {spec['label']}", True, C.COL_TEXT)
             cost = self.small_font.render(f"{spec['cost']} 金币", True, (150, 90, 0))
             hp = self.small_font.render(f"伤害 {spec['damage']}", True, (90, 90, 90))

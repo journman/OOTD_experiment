@@ -3,6 +3,7 @@ import pygame
 
 import config as C
 from ui import load_font
+from art import fruit_image
 
 
 class FieldGuide:
@@ -30,7 +31,8 @@ class FieldGuide:
         for i, kind in enumerate(C.SHOP_ORDER):
             spec = C.FRUITS[kind]
             y = 151 + i * 59
-            pygame.draw.circle(surface, spec['color'], (47, y + 17), 13)
+            sprite = fruit_image(kind, 36)
+            surface.blit(sprite, sprite.get_rect(center=(47, y + 17)))
             self.text(surface, f"{spec['label']}  ·  攻击 {spec['damage']}  ·  价格 {spec['cost']}  ·  生命 {spec['hp']}", (75, y))
             ability = '范围伤害' if kind == 'melon' else '单体攻击'
             self.text(surface, f"{ability}；每 {spec['interval']:g} 秒攻击，射程 {spec['rng']:g} 格", (75, y + 25))

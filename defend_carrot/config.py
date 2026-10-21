@@ -11,12 +11,12 @@ TILE = 40
 GRID_COLS = 20
 GRID_ROWS = 13
 HUD_H = 56
-SHOP_H = 88
+SHOP_H = 116
 
 SCREEN_W = GRID_COLS * TILE            # 800
 FIELD_W = SCREEN_W
 FIELD_H = GRID_ROWS * TILE             # 520
-SCREEN_H = HUD_H + FIELD_H + SHOP_H    # 664
+SCREEN_H = HUD_H + FIELD_H + SHOP_H    # 692
 FPS = 60
 TITLE = "保卫萝卜 · 水果防线"
 
