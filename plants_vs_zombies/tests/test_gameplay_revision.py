@@ -15,11 +15,15 @@ from game import Game
 from entities import Sunflower, Sun
 
 
-def click_canvas(g, pos):
-    rect = g.viewport()
-    window = (round(rect.x + pos[0] * rect.w / C.SCREEN_W),
-              round(rect.y + pos[1] * rect.h / C.SCREEN_H))
-    g.handle_event(pygame.event.Event(pygame.MOUSEBUTTONDOWN, button=1, pos=window))
+def drag_canvas(g, start, end):
+    for event_type, pos, extra in (
+            (pygame.MOUSEBUTTONDOWN, start, {'button': 1}),
+            (pygame.MOUSEMOTION, end, {'buttons': (1, 0, 0)}),
+            (pygame.MOUSEBUTTONUP, end, {'button': 1})):
+        rect = g.viewport()
+        window = (round(rect.x + pos[0] * rect.w / C.SCREEN_W),
+                  round(rect.y + pos[1] * rect.h / C.SCREEN_H))
+        g.handle_event(pygame.event.Event(event_type, pos=window, **extra))
 
 
 def main():
@@ -38,14 +42,14 @@ def main():
                     for row in range(5):
                         for col in range(9):
                             g.cooldowns['sunflower'] = 0
-                            click_canvas(g, g._card_rect(0).center)
-                            click_canvas(g, (C.LAWN_X + col * C.CELL_W + 40,
-                                             C.LAWN_Y + row * C.CELL_H + 50))
+                            drag_canvas(g, g._card_rect(0).center,
+                                        (C.LAWN_X + col * C.CELL_W + 40,
+                                         C.LAWN_Y + row * C.CELL_H + 50))
                             plant = g.plant_at(col, row)
                             assert plant is not None, (size, level, col, row)
                             assert isinstance(plant.row, int) and isinstance(plant.col, int)
                     assert len(g.plants) == 45
-            print(f'PASS: all 45 cells, {len(C.LEVELS)} levels, four viewport sizes ({45 * len(C.LEVELS) * 4} mouse placements)')
+            print(f'PASS: all 45 cells, {len(C.LEVELS)} levels, four viewport sizes ({45 * len(C.LEVELS) * 4} drag placements)')
 
             g.start_level(0, 'select')
             g.state = 'playing'

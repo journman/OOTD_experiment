@@ -472,13 +472,13 @@ class Zombie(Entity):
         if image is None:
             self._draw_fallback(surface)
         else:
-            blit_bottom(surface, image, self.x, self.y)
             if self._hit_flash > 0 and not self.dying:
-                ghost = image.copy()
-                ghost.fill((90, 90, 90, 0), special_flags=pygame.BLEND_RGBA_ADD)
-                surface.blit(ghost, ghost.get_rect(
-                    midbottom=(int(self.x), int(self.y))),
-                    special_flags=pygame.BLEND_RGBA_ADD)
+                # Brighten RGB only; keep the sprite's alpha and blit normally.
+                # Additive blending onto the lawn also brightens transparent
+                # pixels, producing the old white rectangle around the zombie.
+                image = image.copy()
+                image.fill((95, 95, 95), special_flags=pygame.BLEND_RGB_ADD)
+            blit_bottom(surface, image, self.x, self.y)
         if self.slow_timer > 0 and not self.dying:
             pygame.draw.circle(surface, (150, 220, 255),
                                (int(self.x), int(self.y) - 50), 32, 2)

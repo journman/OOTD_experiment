@@ -33,7 +33,9 @@ Windows 10/11 64 位：解压后双击对应 `.exe`；不需要安装 Python、p
 - 主菜单点击“植物与僵尸图鉴”，或在任意界面按 `I` 查看全部 16 种植物和 5 种僵尸的介绍。`Tab` 切换分类，`←` / `→` 翻页，`I` / `Esc` 或返回按钮关闭；查看时战斗暂停，关闭后继续。未解锁植物可查看介绍，仍需冒险通关获得。
 - 主菜单：点击冒险模式继续闯关，或点击选择关卡打开地图。
 - 选卡：点击植物加入阵容，点击已选卡片移除；`A` 快速选满，`Enter` 开始。
-- 战斗：`1`–`8` 选择卡片；左键种植或收集阳光；右键取消选择。五行草坪从第一关起全部可种，选卡后显示格子与落点预览；冷却、阳光不足和格子占用会显示原因。
+- 战斗：按住上方植物卡片，拖到草坪有效格子松手种植；植物贴图随鼠标移动。无效位置松手、右键或拖动时按 `Esc` 都会取消，不扣阳光、不触发冷却；冷却、价格和占格规则保持不变。保留 `1`–`8` 选卡后点击草坪的快捷操作；阳光仍用左键点击收集。
+- 铲子：按住右上角铲子，拖到植物所在格子松手，只铲除该株植物，不返还阳光、不重置卡片冷却。每次使用后回到工具栏；空地或草坪外松手取消。铲子从第一关起可用。
+- 暂停、打开图鉴、切关、窗口缩放或失去焦点会取消当前拖动，恢复后不会自动种植或铲除。五行草坪全部可种，拖动时显示格子和目标提示。
 - 战斗中按 `P` 或点击右下角暂停按钮，暂停阳光、冷却和敌人行动；`P` / `Enter` / `Esc` 或“继续战斗”恢复。暂停时可按 `I` 查看图鉴，返回后仍保持暂停。
 - 通关：点击“下一关”或按 `Enter` 继续；`R` 重试当前关卡。
 - `F` 切换全屏；`Esc` 退出全屏 / 返回庭院，主菜单按 `Esc` 退出。
@@ -55,6 +57,7 @@ Windows 10/11 64 位：解压后双击对应 `.exe`；不需要安装 Python、p
 - 主菜单点击“开始挑战”或按 `Enter` 出发；`1`–`3` 或点击卡片选择防御水果，左键在空草地建造；路径和萝卜位置不能建造，右键取消选择。
 - 选塔后显示落点预览和攻击范围，绿色表示可以建造，红色表示不可建造；点击失败时会提示道路、萝卜位置、格子占用或金币不足。未选塔时，将鼠标移到已有防御塔上也可查看射程。
 - 下方信息栏显示下一波倒计时、建造提示和漏怪警告；水果塔、卡片、图鉴和预览使用统一绘制的图标。
+- 画面采用统一的立体卡通角色素材与花园、森林草地背景，包含三种水果、四种怪物和萝卜。地图道路按真实路径坐标绘制，角色图片只改变显示，不改变攻击范围、碰撞或关卡数值。素材生成说明与提示词见 [美术资源说明](defend_carrot/assets/ART_NOTES.md)。
 - `P` 或右下角暂停按钮暂停，`P` / `Enter` 或“继续防守”恢复。战斗中 `Esc` 暂停，暂停或结算界面 `Esc` 返回主菜单；主菜单 `Esc` 退出。
 - 第一关“花园小径”结束后显示关卡结算，点击按钮或按 `Enter` 前往“林间转角”。第二关使用新的路线和场景配色；存活防御塔按原价回收，萝卜恢复生命，金币、积分和击杀数继续累计。
 - 胜负界面点击“重新挑战”或按 `R` / `Enter` 从第一关重新开始；只有明确点击按钮才会重开。保卫萝卜本轮挑战进度不写入存档，退出后重新挑战。
@@ -88,6 +91,8 @@ python defend_carrot/main.py
 python plants_vs_zombies/tests/test_adventure_flow.py
 python plants_vs_zombies/tests/test_ui_flow.py
 python plants_vs_zombies/tests/test_pause.py
+python plants_vs_zombies/tests/test_drag_tools.py
+python plants_vs_zombies/tests/test_hit_flash.py
 python plants_vs_zombies/tests/test_progress.py
 python plants_vs_zombies/tests/test_packaged_save.py
 python plants_vs_zombies/tests/test_gameplay_revision.py
@@ -110,7 +115,7 @@ python -m pip install -r requirements-build.txt
 python tools/build_windows.py
 ```
 
-构建输出为 `dist/PlantsVsZombies.exe` 和 `dist/DefendCarrot.exe`。构建脚本会运行实际 EXE 自检，确认素材加载、初始关卡、种植/建造和渲染可用。
+构建输出为 `dist/PlantsVsZombies.exe` 和 `dist/DefendCarrot.exe`。构建脚本会收集两个游戏各自的素材目录，并运行实际 EXE 自检，确认素材加载、初始关卡、种植/建造和渲染可用。
 
 ## 面向对象结构
 
@@ -121,4 +126,4 @@ python tools/build_windows.py
 
 ## 素材来源
 
-植物大战僵尸图片来自参考项目 [marblexu/PythonPlantsVsZombies](https://github.com/marblexu/PythonPlantsVsZombies) 中的素材包，相关角色与美术归原权利人。此仓库用于课程学习与非商业演示；第三方素材的权利和来源说明见 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)。保卫萝卜项目的画面由程序绘制。
+植物大战僵尸图片来自参考项目 [marblexu/PythonPlantsVsZombies](https://github.com/marblexu/PythonPlantsVsZombies) 中的素材包，相关角色与美术归原权利人。此仓库用于课程学习与非商业演示；第三方素材的权利和来源说明见 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)。保卫萝卜使用为本项目生成的卡通角色与场景素材，道路和界面由程序绘制。

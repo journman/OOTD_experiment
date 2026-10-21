@@ -3,7 +3,7 @@ import pygame
 
 import config as C
 from ui import load_font
-from art import fruit_image
+from art import fruit_image, character_image
 
 
 class FieldGuide:
@@ -23,6 +23,7 @@ class FieldGuide:
 
     def draw(self, surface):
         surface.fill((240, 235, 213))
+        pygame.draw.rect(surface, (170, 153, 104), surface.get_rect().inflate(-24, -24), 2, border_radius=14)
         self.text(surface, '防守手册', (30, 25), True)
         pygame.draw.rect(surface, (215, 205, 175), self.close_rect, border_radius=6)
         self.text(surface, '返回 [I / Esc]', (650, 36))
@@ -39,7 +40,11 @@ class FieldGuide:
         self.text(surface, '来袭怪物', (30, 334), True)
         for i, (kind, spec) in enumerate(C.MONSTERS.items()):
             y = 379 + i * 58
-            pygame.draw.circle(surface, spec['color'], (47, y + 17), 13)
+            sprite = character_image(kind, 38)
+            if sprite is not None:
+                surface.blit(sprite, sprite.get_rect(center=(47, y + 17)))
+            else:
+                pygame.draw.circle(surface, spec['color'], (47, y + 17), 13)
             self.text(surface, f"{spec['label']}  ·  生命 {spec['hp']}  ·  速度 {spec['speed']:g} 格/秒", (75, y))
             detail = f"到达终点扣 {spec['bite']} 血；击杀获得 {spec['reward']} 金币和积分"
             if kind == 'thrower':

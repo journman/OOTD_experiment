@@ -23,7 +23,12 @@ def self_test(report_path: str) -> int:
         import pygame
         import config as C
         from game import Game
+        from art import CHARACTERS, character_image, load_image
         game = Game()
+        for name in ('character-atlas.png', 'garden-ground.png', 'forest-ground.png'):
+            assert load_image(name) is not None, name
+        for kind in CHARACTERS:
+            assert character_image(kind) is not None, kind
         assert game.state == "menu"
         game.draw()
         game.handle_event(pygame.event.Event(pygame.KEYDOWN, key=pygame.K_RETURN))

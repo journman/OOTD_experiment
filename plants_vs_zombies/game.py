@@ -27,7 +27,8 @@ from garden_ui import (GardenUI, mode_rect, level_rect, BACK_RECT,
                        CHOOSER_BACK_RECT, CHOOSER_START_RECT,
                        RESULT_PRIMARY_RECT, RESULT_MAP_RECT, PLANT_NAMES,
                        MAP_PREV_RECT, MAP_NEXT_RECT, SEED_PREV_RECT, SEED_NEXT_RECT,
-                       PAUSE_BUTTON_RECT, PAUSE_RESUME_RECT, PAUSE_MENU_RECT)
+                       PAUSE_BUTTON_RECT, PAUSE_RESUME_RECT, PAUSE_MENU_RECT,
+                       SHOVEL_RECT)
 from entities import (
     CherryBomb, Explosion, Jalapeno, LaneFire, Peashooter, Plant, PotatoMine,
     Projectile, Repeater, SnowPea, Sun, Sunflower, Threepeater, WallNut,
@@ -162,6 +163,8 @@ class Game:
         self.rows = self.level["rows"]
         self.sun = self.level["sun"]
         self.selected: Optional[str] = None
+        self.drag_kind: Optional[str] = None
+        self.drag_pos = None
         self.sky_sun_timer = C.SKY_SUN_INTERVAL
         self.wave_index = 0
         self.wave_timer = 0.0
@@ -194,6 +197,8 @@ class Game:
         self.effects = []
         self.sun = self.level["sun"]
         self.selected = None
+        self.drag_kind = None
+        self.drag_pos = None
         self.sky_sun_timer = C.SKY_SUN_INTERVAL
         self.wave_index = 0
         self.wave_timer = 0.0
@@ -298,6 +303,7 @@ class Game:
         self.suns.append(Sun(x, y, amount, falls=falls))
 
     def on_zombie_reached_house(self) -> None:
+        self.cancel_drag()
         self.state = "lost"
 
     # ---------------------------------------------------------------- update
@@ -365,6 +371,7 @@ class Game:
 
     def _check_victory(self) -> None:
         if self.state == "playing" and self.wave_index >= len(self.waves) and not self.zombies:
+            self.cancel_drag()
             self.state = "won"
             self._on_level_won()
 
@@ -407,6 +414,7 @@ class Game:
 
     # ----------------------------------------------------------------- input
     def toggle_fullscreen(self) -> None:
+        self.cancel_drag()
         self.fullscreen = not self.fullscreen
         if self.fullscreen:
             self.screen = pygame.display.set_mode((0, 0), pygame.FULLSCREEN)
@@ -415,13 +423,18 @@ class Game:
                                                   pygame.RESIZABLE)
 
     def handle_event(self, event: pygame.event.Event) -> None:
+        if event.type == pygame.WINDOWFOCUSLOST:
+            self.cancel_drag()
+            return
         if event.type == pygame.VIDEORESIZE and not self.fullscreen:
+            self.cancel_drag()
             self.windowed_size = (max(400, event.w), max(300, event.h))
             self.screen = pygame.display.set_mode(self.windowed_size,
                                                   pygame.RESIZABLE)
             return
 
         if event.type == pygame.KEYDOWN and event.key == pygame.K_i:
+            self.cancel_drag()
             self.almanac.opened = not self.almanac.opened
             return
         if self.almanac.opened:
@@ -433,6 +446,7 @@ class Game:
             return
 
         if event.type == pygame.KEYDOWN and event.key == pygame.K_p:
+            self.cancel_drag()
             if self.state in ("playing", "paused"):
                 self.state = "paused" if self.state == "playing" else "playing"
             return
@@ -456,6 +470,9 @@ class Game:
                 self.turn_page(-1 if event.key == pygame.K_LEFT else 1)
                 return
             if event.key == pygame.K_ESCAPE:
+                if self.drag_kind is not None:
+                    self.cancel_drag()
+                    return
                 if self.fullscreen:
                     self.toggle_fullscreen()
                     return
@@ -489,7 +506,19 @@ class Game:
                 if event.key in keys:
                     idx = keys.index(event.key)
                     if idx < len(self.seeds):
+                        self.cancel_drag()
                         self.selected = self.seeds[idx]
+
+        if event.type == pygame.MOUSEMOTION and self.drag_kind is not None:
+            if hasattr(event, 'buttons') and not event.buttons[0]:
+                self.cancel_drag()
+            else:
+                self.drag_pos = self._to_canvas(event.pos)
+            return
+        if event.type == pygame.MOUSEBUTTONUP and event.button == 1:
+            if self.drag_kind is not None:
+                self.finish_drag(self._to_canvas(event.pos))
+            return
 
         if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
             if self.state == "menu":
@@ -504,15 +533,79 @@ class Game:
             if self.state == "choosing":
                 self._on_choose_click(self._to_canvas(event.pos))
                 return
+            if self.state == "playing":
+                if self.drag_kind is not None:
+                    return
+                pos = self._to_canvas(event.pos)
+                if SHOVEL_RECT.collidepoint(pos):
+                    self.selected = None
+                    self.notice_timer = 0.0
+                    self.drag_kind, self.drag_pos = 'shovel', pos
+                    return
+                for i, kind in enumerate(self.seeds):
+                    if self._card_rect(i).collidepoint(pos):
+                        self.begin_plant_drag(kind, pos)
+                        return
             self._on_click(self._to_canvas(event.pos))
 
         if event.type == pygame.MOUSEBUTTONDOWN and event.button == 3:
+            self.cancel_drag()
             self.selected = None
+
+    def cancel_drag(self):
+        if self.drag_kind is not None:
+            self.selected = None
+        self.drag_kind = None
+        self.drag_pos = None
+
+    def card_error(self, kind):
+        remaining = self.cooldowns.get(kind, 0.0)
+        if remaining > 0:
+            return f"卡片冷却中，还需 {remaining:.1f} 秒"
+        cost = C.PLANTS[kind]['cost']
+        if self.sun < cost:
+            return f"阳光不足，还差 {cost - self.sun}"
+        return ""
+
+    def begin_plant_drag(self, kind, pos):
+        self.cancel_drag()
+        self.selected = None
+        if kind not in self.seeds:
+            return
+        reason = self.card_error(kind)
+        if reason:
+            self.show_notice(reason)
+            return
+        self.selected = self.drag_kind = kind
+        self.drag_pos = pos
+        self.notice_timer = 0.0
+
+    def finish_drag(self, pos):
+        kind = self.drag_kind
+        self.drag_kind = None
+        self.drag_pos = None
+        if self.state != 'playing' or self.almanac.opened:
+            self.selected = None
+            return
+        if kind == 'shovel':
+            self.selected = None
+            cell = self.lawn_cell(pos)
+            plant = self.plant_at(*cell) if cell else None
+            if plant:
+                plant.alive = False
+                self._reap()
+                self.show_notice(f"已铲除{PLANT_NAMES[plant.kind]}，不返还阳光")
+            return
+        if kind in self.seeds:
+            self.selected = kind
+            self._plant_selected(pos)
+        self.selected = None
 
     def _on_click(self, pos) -> None:
         if self.state != "playing" or self.almanac.opened:
             return
         if PAUSE_BUTTON_RECT.collidepoint(pos):
+            self.cancel_drag()
             self.state = "paused"
             return
         # 1) Collect a sun if one was clicked.
@@ -529,6 +622,11 @@ class Game:
                 return
 
         # 3) Otherwise try to place the selected plant.
+        self._plant_selected(pos)
+
+    def _plant_selected(self, pos):
+        if self.state != 'playing' or self.almanac.opened:
+            return
         if self.selected is None:
             return
         cell = self.lawn_cell(pos)
@@ -568,13 +666,7 @@ class Game:
             return "请先选择上方的植物卡片"
         if self.plant_at(*cell) is not None:
             return "这里已经种了植物"
-        remaining = self.cooldowns.get(self.selected, 0.0)
-        if remaining > 0:
-            return f"卡片冷却中，还需 {remaining:.1f} 秒"
-        cost = C.PLANTS[self.selected]["cost"]
-        if self.sun < cost:
-            return f"阳光不足，还差 {cost - self.sun}"
-        return ""
+        return self.card_error(self.selected)
 
     # ------------------------------------------------------ seed chooser
     def _to_canvas(self, pos):
@@ -716,6 +808,7 @@ class Game:
             self._draw_hud()
             if self.state == "playing":
                 self.ui.draw_battle_info()
+                self.ui.draw_drag_cursor()
             if self.state == "paused":
                 self.ui.draw_pause()
             elif self.state != "playing":

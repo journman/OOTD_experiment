@@ -31,7 +31,7 @@ from typing import List, Optional, TYPE_CHECKING
 import pygame
 
 import config as C
-from art import fruit_image
+from art import fruit_image, character_image
 
 if TYPE_CHECKING:
     from game import Game
@@ -115,7 +115,7 @@ class Fruit(Entity):
         if self.hp < self.max_hp:
             w = 30
             x, y = cx - w // 2, cy - 24
-            pygame.draw.rect(surface, C.COL_HP_BG, (x, y, w, 4))
+            pygame.draw.rect(surface, (37, 59, 40), (x - 1, y - 1, w + 2, 6), border_radius=3)
             pygame.draw.rect(surface, C.COL_HP_FG,
                              (x, y, int(w * self.hp / self.max_hp), 4))
 
@@ -231,15 +231,20 @@ class Monster(Entity):
 
     def draw(self, surface: pygame.Surface) -> None:
         cx, cy = int(self.x), int(self.y)
-        body = (255, 255, 255) if self._hit_flash > 0 else self.color
-        pygame.draw.circle(surface, body, (cx, cy), 13)
-        pygame.draw.circle(surface, (40, 40, 40), (cx, cy), 13, 2)
-        self.draw_detail(surface, cx, cy)
+        sprite = character_image(self.kind, 44 if self.kind in ('bat', 'golem') else 38,
+                                 flash=self._hit_flash > 0)
+        if sprite is not None:
+            surface.blit(sprite, sprite.get_rect(center=(cx, cy)))
+        else:
+            body = (255, 255, 255) if self._hit_flash > 0 else self.color
+            pygame.draw.circle(surface, body, (cx, cy), 13)
+            self.draw_detail(surface, cx, cy)
         w = 26
-        x, y = cx - w // 2, cy - 22
-        pygame.draw.rect(surface, C.COL_HP_BG, (x, y, w, 4))
-        pygame.draw.rect(surface, C.COL_HP_FG,
-                         (x, y, int(w * self.hp / self.max_hp), 4))
+        x, y = cx - w // 2, cy - 26
+        fraction = max(0, min(1, self.hp / self.max_hp))
+        pygame.draw.rect(surface, (40, 52, 42), (x - 1, y - 1, w + 2, 6), border_radius=3)
+        pygame.draw.rect(surface, (161, 199, 105) if fraction > .35 else (233, 122, 91),
+                         (x, y, round(w * fraction), 4), border_radius=2)
 
     def draw_detail(self, surface, cx, cy) -> None:
         ...
@@ -383,6 +388,10 @@ class Carrot(Entity):
 
     def draw(self, surface: pygame.Surface) -> None:
         cx, cy = int(self.x), int(self.y)
+        sprite = character_image('carrot', 54)
+        if sprite is not None:
+            surface.blit(sprite, sprite.get_rect(center=(cx, cy - 7)))
+            return
         pygame.draw.polygon(surface, (240, 140, 40),
                             [(cx, cy + 20), (cx - 13, cy - 8), (cx + 13, cy - 8)])
         for i in range(3):

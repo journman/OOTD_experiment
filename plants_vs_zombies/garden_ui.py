@@ -49,6 +49,7 @@ SEED_NEXT_RECT = pygame.Rect(448, 159, 70, 32)
 PAUSE_BUTTON_RECT = pygame.Rect(678, 570, 110, 27)
 PAUSE_RESUME_RECT = pygame.Rect(255, 300, 290, 48)
 PAUSE_MENU_RECT = pygame.Rect(255, 375, 290, 43)
+SHOVEL_RECT = pygame.Rect(730, 8, 58, 72)
 
 
 class GardenUI:
@@ -366,14 +367,14 @@ class GardenUI:
     def draw_wave(self):
         g = self.game
         # An independent compact wooden HUD leaves the eight seed slots free.
-        panel = pygame.Rect(550, 5, 237, 79)
+        panel = pygame.Rect(550, 5, 173, 79)
         self.panel(panel, "wood")
         final = g.wave_index == len(g.waves) - 1 and g.wave_timer >= 0
         self.text(f"{g.level['id']}  " + ("最后一波！" if final else "关卡进度"),
                   (562, 12), 13, (247, 196, 108) if final else CREAM, center=False)
         wave = min(g.wave_index + 1, len(g.waves))
-        self.text(f"{wave}/{len(g.waves)} 波", (770, 18), 13)
-        track = pygame.Rect(568, 48, 194, 16)
+        self.text(f"{wave}/{len(g.waves)} 波", (691, 18), 12)
+        track = pygame.Rect(565, 54, 140, 15)
         pygame.draw.rect(self.canvas, (38, 31, 20), track.inflate(6, 6), border_radius=8)
         pygame.draw.rect(self.canvas, (181, 148, 81), track.inflate(4, 4), 1, border_radius=7)
         pygame.draw.rect(self.canvas, (68, 74, 35), track, border_radius=6)
@@ -390,10 +391,10 @@ class GardenUI:
         for wave in g.waves:
             cumulative += len(wave)
             x = track.x + round(track.w * cumulative / total)
-            pygame.draw.line(self.canvas, (231, 215, 165), (x, 44), (x, 63), 2)
+            pygame.draw.line(self.canvas, (231, 215, 165), (x, 50), (x, 69), 2)
             flag = g.assets.misc("wave_flag")
             if flag:
-                self.canvas.blit(flag, (x - 23, 30))
+                self.canvas.blit(flag, (x - 23, 36))
         head = g.assets.misc("wave_head")
         x = track.x + round(track.w * frac)
         if head:
@@ -439,13 +440,51 @@ class GardenUI:
                 self.text(f"{math.ceil(g.cooldowns[kind])}s", rect.center, 17,
                           outline=(30, 30, 25), bold=True)
             self.text(i + 1, (rect.x + 5, rect.y + 1), 13, center=False, outline=(40, 32, 22), bold=True)
+        self.panel(SHOVEL_RECT, 'wood', g.drag_kind == 'shovel')
+        icon = self.shovel_image()
+        self.canvas.blit(self.scaled(icon, (43, 43)), (SHOVEL_RECT.x + 8, SHOVEL_RECT.y + 3))
+        self.text('铲子', (SHOVEL_RECT.centerx, SHOVEL_RECT.bottom - 15), 14)
+
+    def pointer_pos(self):
+        g = self.game
+        return g.drag_pos if g.drag_pos is not None else g._to_canvas(pygame.mouse.get_pos())
+
+    def shovel_image(self):
+        key = 'shovel'
+        if key not in self.images:
+            source = self.game.assets.misc('shovel')
+            icon = pygame.Surface((64, 64), pygame.SRCALPHA)
+            if source is not None:
+                source = source.subsurface(source.get_bounding_rect()).copy()
+                scale = min(64 / source.get_width(), 64 / source.get_height())
+                size = (round(source.get_width() * scale), round(source.get_height() * scale))
+                art = self.scaled(source, size)
+                icon.blit(art, art.get_rect(center=(32, 32)))
+            self.images[key] = icon
+        return self.images[key]
+
+    def draw_drag_cursor(self):
+        g = self.game
+        if g.drag_kind is None or g.drag_pos is None:
+            return
+        x, y = map(round, g.drag_pos)
+        if g.drag_kind == 'shovel':
+            # The original shovel points down-left; keep its blade under the cursor.
+            self.canvas.blit(self.shovel_image(), (x - 12, y - 55))
+        else:
+            frames = g.assets.plant(C.PLANTS[g.drag_kind]['sprite'])
+            if frames:
+                image = frames[0].copy()
+                image.set_alpha(210)
+                self.canvas.blit(image, image.get_rect(center=(x, y)))
 
     def draw_placement(self):
         g = self.game
         for row in range(g.rows):
             self.text(row + 1, (20, C.LAWN_Y + row * C.CELL_H + 50),
                       14, outline=(25, 40, 20))
-        if g.selected is None:
+        shoveling = g.drag_kind == 'shovel'
+        if g.selected is None and not shoveling:
             return
         overlay = pygame.Surface((800, 600), pygame.SRCALPHA)
         for row in range(g.rows):
@@ -453,16 +492,16 @@ class GardenUI:
                 rect = pygame.Rect(C.LAWN_X + col * C.CELL_W,
                                    C.LAWN_Y + row * C.CELL_H, C.CELL_W, C.CELL_H)
                 pygame.draw.rect(overlay, (235, 245, 190, 65), rect, 1)
-        cell = g.lawn_cell(g._to_canvas(pygame.mouse.get_pos()))
+        cell = g.lawn_cell(self.pointer_pos())
         if cell is not None:
             col, row = cell
             rect = pygame.Rect(C.LAWN_X + col * C.CELL_W,
                                C.LAWN_Y + row * C.CELL_H, C.CELL_W, C.CELL_H)
-            valid = not g.planting_error(cell)
+            valid = bool(g.plant_at(*cell)) if shoveling else not g.planting_error(cell)
             color = (110, 220, 90) if valid else (245, 95, 65)
             pygame.draw.rect(overlay, (*color, 65), rect)
             pygame.draw.rect(overlay, (*color, 220), rect, 2)
-            frames = g.assets.plant(C.PLANTS[g.selected]["sprite"])
+            frames = g.assets.plant(C.PLANTS[g.selected]["sprite"]) if g.selected and g.drag_kind is None else []
             if frames:
                 ghost = frames[0].copy()
                 ghost.set_alpha(140)
@@ -482,14 +521,21 @@ class GardenUI:
         names = g.level.get("wave_names", [])
         name = names[wave] if wave < len(names) else f"第 {wave + 1} 波"
         text = f"{name}  ·  {g.level.get('rule', '')}"
-        if g.wave_timer < 0:
-            text += f"  ·  下一波 {math.ceil(-g.wave_timer)} 秒"
+        if g.drag_kind == 'shovel':
+            cell = g.lawn_cell(self.pointer_pos())
+            plant = g.plant_at(*cell) if cell else None
+            text = f"松手铲除{PLANT_NAMES[plant.kind]} · 不返还阳光" if plant else '拖到植物上松手铲除，右键或 Esc 取消'
         elif g.selected:
-            cell = g.lawn_cell(g._to_canvas(pygame.mouse.get_pos()))
-            hint = g.planting_error(cell) if cell else "点击草坪种植，右键取消"
-            text = f"{PLANT_NAMES[g.selected]}  ·  {hint or '这里可以种植'}"
+            cell = g.lawn_cell(self.pointer_pos())
+            if cell:
+                hint = g.planting_error(cell)
+            else:
+                hint = '拖到草坪，松手种植' if g.drag_kind else '点击草坪种植'
+            text = f"{PLANT_NAMES[g.selected]} · {hint or ('松手种植，右键取消' if g.drag_kind else '这里可以种植')}"
+        elif g.wave_timer < 0:
+            text += f"  ·  下一波 {math.ceil(-g.wave_timer)} 秒"
         else:
-            text += "  ·  1–8 选卡 / 点击阳光收集"
+            text += "  ·  拖卡种植 / 点击收集阳光"
         if g.notice_timer > 0:
             text = g.notice
         panel = pygame.Surface((650, 27), pygame.SRCALPHA)

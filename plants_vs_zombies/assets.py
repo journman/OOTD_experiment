@@ -212,6 +212,7 @@ class Assets:
         self._misc["bar"] = one(os.path.join(scr, "ChooserBackground.png"))
         self._misc["panel"] = one(os.path.join(scr, "PanelBackground.png"))
         self._misc["boom"] = one(os.path.join(scr, "Boom.png"))
+        self._misc["shovel"] = one(os.path.join(scr, "Shovel.png"))
         self._misc["start_button"] = one(os.path.join(scr, "StartButton.png"))
         self._misc["adventure"] = one(os.path.join(scr, "Adventure_0.png"))
         self._misc["adventure_hover"] = one(os.path.join(scr, "Adventure_1.png"))

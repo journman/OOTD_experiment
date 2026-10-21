@@ -17,7 +17,7 @@ import pygame
 import config as C
 from guide import FieldGuide
 from ui import GameUI, load_font
-from art import fruit_image
+from scenery import field_image
 from entities import (
     Apple, Bat, Bullet, Carrot, Effect, Fruit, Golem, Melon, Monster, Orange,
     Rock, RockThrower, Slime, tile_center,
@@ -312,63 +312,17 @@ class Game:
         pygame.display.flip()
 
     def _draw_field(self) -> None:
-        for row in range(C.GRID_ROWS):
-            for col in range(C.GRID_COLS):
-                if (col, row) in self.path_cells:
-                    continue
-                base = C.LEVELS[self.level_index]["grass"][(row + col) % 2]
-                x, y = col * C.TILE, C.HUD_H + row * C.TILE
-                pygame.draw.rect(self.screen, base, (x, y, C.TILE, C.TILE))
-        # Path.
-        pts = [(int(x), int(y)) for (x, y) in self.path]
-        pygame.draw.lines(self.screen, C.COL_PATH_EDGE, False, pts, C.TILE + 4)
-        pygame.draw.lines(self.screen, C.COL_PATH, False, pts, C.TILE - 6)
+        self.screen.blit(field_image(self.level_index), (0, C.HUD_H))
 
     def _card_rect(self, index: int) -> pygame.Rect:
         x = 12 + index * 150
         return pygame.Rect(x, C.SCREEN_H - C.SHOP_H + 36, 140, C.SHOP_H - 46)
 
     def _draw_shop(self) -> None:
-        pygame.draw.rect(self.screen, C.COL_SHOP_BG,
-                         (0, C.SCREEN_H - C.SHOP_H, C.SCREEN_W, C.SHOP_H))
-        for i, kind in enumerate(C.SHOP_ORDER):
-            spec = C.FRUITS[kind]
-            rect = self._card_rect(i)
-            affordable = self.coins >= spec["cost"]
-            col = (C.COL_CARD_SEL if self.selected == kind
-                   else C.COL_CARD if affordable else C.COL_CARD_OFF)
-            pygame.draw.rect(self.screen, col, rect, border_radius=8)
-            pygame.draw.rect(self.screen, (70, 70, 70), rect, 2, border_radius=8)
-            sprite = fruit_image(kind)
-            self.screen.blit(sprite, sprite.get_rect(center=(rect.x + 26, rect.y + 34)))
-            name = self.small_font.render(f"{i + 1}. {spec['label']}", True, C.COL_TEXT)
-            cost = self.small_font.render(f"{spec['cost']} 金币", True, (150, 90, 0))
-            hp = self.small_font.render(f"伤害 {spec['damage']}", True, (90, 90, 90))
-            self.screen.blit(name, (rect.x + 48, rect.y + 12))
-            self.screen.blit(cost, (rect.x + 48, rect.y + 32))
-            self.screen.blit(hp, (rect.x + 48, rect.y + 50))
+        self.ui.draw_shop()
 
     def _draw_hud(self) -> None:
-        pygame.draw.rect(self.screen, C.COL_HUD_BG, (0, 0, C.SCREEN_W, C.HUD_H))
-        coin = self.font.render(f"金币 {self.coins}", True, (255, 230, 120))
-        self.screen.blit(coin, (14, 16))
-        level = C.LEVELS[self.level_index]
-        waves = len(level["waves"])
-        info = self.font.render(
-            f"{level['name']}   波次 {min(self.wave_index + 1, waves)}/{waves}",
-            True, (240, 240, 240))
-        self.screen.blit(info, (190, 8))
-        kills = self.small_font.render(f"击杀 {self.kills}   积分 {self.score}", True, (220, 220, 220))
-        self.screen.blit(kills, (190, 34))
-        # Carrot HP bar.
-        bar_w = 180
-        x = C.SCREEN_W - bar_w - 16
-        pygame.draw.rect(self.screen, C.COL_HP_BG, (x, 20, bar_w, 16), border_radius=6)
-        frac = max(0.0, self.carrot.hp / self.carrot.max_hp)
-        pygame.draw.rect(self.screen, C.COL_HP_FG,
-                         (x, 20, int(bar_w * frac), 16), border_radius=6)
-        label = self.small_font.render(f"萝卜生命 {max(0, self.carrot.hp):g}/{C.CARROT_HP}", True, (240, 240, 240))
-        self.screen.blit(label, (x, 2))
+        self.ui.draw_hud()
 
     # ------------------------------------------------------------------- run
     def run(self) -> None:

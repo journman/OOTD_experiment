@@ -1,13 +1,57 @@
 """Cached procedural fruit art, shared by towers, cards and placement previews."""
 from functools import lru_cache
+from pathlib import Path
 
 import pygame
 
 import config as C
 
+ASSET_DIR = Path(__file__).resolve().parent / 'assets'
+# Pixel regions of the original 1774x887 sheet. Wings and leaves extend beyond
+# nominal grid boundaries, so explicit regions keep entire silhouettes intact.
+CHARACTERS = {
+    'apple': (43, 49, 379, 391), 'orange': (467, 65, 411, 376),
+    'melon': (913, 68, 463, 376), 'carrot': (1400, 12, 331, 434),
+    'slime': (26, 489, 390, 356), 'bat': (422, 501, 506, 300),
+    'golem': (929, 472, 474, 382), 'thrower': (1425, 460, 309, 386),
+}
+
+
+@lru_cache(maxsize=4)
+def load_image(name):
+    path = ASSET_DIR / name
+    if not path.is_file():
+        return None
+    return pygame.image.load(str(path))
+
+
+@lru_cache(maxsize=96)
+def character_image(kind, size=40, flash=False):
+    atlas = load_image('character-atlas.png')
+    if atlas is None:
+        return None
+    cell = atlas.subsurface(pygame.Rect(CHARACTERS[kind]))
+    bounds = cell.get_bounding_rect(min_alpha=12)
+    if not bounds.w or not bounds.h:
+        return None
+    sprite = cell.subsurface(bounds)
+    scale = (size - 2) / max(bounds.size)
+    dimensions = (max(1, round(bounds.w * scale)), max(1, round(bounds.h * scale)))
+    image = pygame.Surface((size, size), pygame.SRCALPHA)
+    sprite = pygame.transform.smoothscale(sprite, dimensions)
+    if flash:
+        sprite.fill((80, 80, 80), special_flags=pygame.BLEND_RGB_ADD)
+    image.blit(sprite, sprite.get_rect(center=(size // 2, size // 2)))
+    return image
+
+
+def fruit_image(kind, size=40, flash=False):
+    image = character_image(kind, size, flash)
+    return image if image is not None else _fallback_fruit_image(kind, size, flash)
+
 
 @lru_cache(maxsize=24)
-def fruit_image(kind, size=40, flash=False):
+def _fallback_fruit_image(kind, size=40, flash=False):
     image = pygame.Surface((48, 48), pygame.SRCALPHA)
     pygame.draw.ellipse(image, (20, 40, 24, 70), (6, 36, 36, 9))
     color = (255, 247, 222) if flash else C.FRUITS[kind]['color']
