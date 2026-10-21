@@ -2,8 +2,8 @@
 
     python main.py
 
-Keys: 1-3 select a fruit, left click places it on the grass, right click
-cancels, R restarts after a win or loss, Esc quits.
+Keys: Enter starts/continues, 1-3 or a card selects a fruit, left click
+builds, right click cancels, I opens the guide, P pauses, Esc goes back.
 """
 
 import sys
@@ -24,6 +24,9 @@ def self_test(report_path: str) -> int:
         import config as C
         from game import Game
         game = Game()
+        assert game.state == "menu"
+        game.draw()
+        game.handle_event(pygame.event.Event(pygame.KEYDOWN, key=pygame.K_RETURN))
         game.coins = 1000
         for kind in C.SHOP_ORDER:
             col, row = next((col, row) for row in range(C.GRID_ROWS)

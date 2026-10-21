@@ -18,7 +18,7 @@ FIELD_W = SCREEN_W
 FIELD_H = GRID_ROWS * TILE             # 520
 SCREEN_H = HUD_H + FIELD_H + SHOP_H    # 664
 FPS = 60
-TITLE = "Defend the Carrot - OOP MVP"
+TITLE = "保卫萝卜 · 水果防线"
 
 # ---------------------------------------------------------------- colors
 COL_GRASS = (126, 176, 96)
@@ -44,11 +44,11 @@ PASSIVE_INCOME = 25        # coins granted at the start of every wave
 # straight off these values.
 FRUITS = {
     "apple": dict(cost=100, hp=120, damage=22, interval=1.0, rng=2.6,
-                  color=(214, 62, 62), label="Apple"),
+                  color=(214, 62, 62), label="苹果"),
     "orange": dict(cost=70, hp=90, damage=12, interval=0.55, rng=2.1,
-                   color=(240, 150, 40), label="Orange"),
+                   color=(240, 150, 40), label="橙子"),
     "melon": dict(cost=180, hp=170, damage=48, interval=1.7, rng=3.2,
-                  color=(70, 170, 90), label="Watermelon"),
+                  color=(70, 170, 90), label="西瓜"),
 }
 SHOP_ORDER = ["orange", "apple", "melon"]
 
@@ -56,13 +56,13 @@ SHOP_ORDER = ["orange", "apple", "melon"]
 # speed is measured in tiles per second, so it reads the same on any map.
 MONSTERS = {
     "slime": dict(hp=60, speed=1.7, reward=12, bite=1, color=(120, 200, 120),
-                  label="Slime"),
+                  label="史莱姆"),
     "bat": dict(hp=45, speed=2.7, reward=15, bite=1, color=(150, 130, 200),
-                label="Bat"),
+                label="蝙蝠"),
     "golem": dict(hp=240, speed=1.0, reward=35, bite=3, color=(150, 140, 120),
-                  label="Golem"),
+                  label="石巨人"),
     "thrower": dict(hp=110, speed=1.3, reward=28, bite=2, color=(190, 120, 90),
-                    label="Rock Thrower", throw_interval=3.0, throw_damage=24,
+                    label="投石怪", throw_interval=3.0, throw_damage=24,
                     throw_range=3.2),
 }
 
@@ -78,10 +78,10 @@ BULLET_SPEED = 340.0
 MONSTER_HIT_RADIUS = 16
 
 
-def _path_cells():
+def path_cells(path):
     """Every tile the path passes through, so towers cannot be built there."""
     cells = set()
-    for (c0, r0), (c1, r1) in zip(PATH, PATH[1:]):
+    for (c0, r0), (c1, r1) in zip(path, path[1:]):
         if c0 == c1:
             for r in range(min(r0, r1), max(r0, r1) + 1):
                 cells.add((c0, r))
@@ -91,21 +91,25 @@ def _path_cells():
     return cells
 
 
-PATH_CELLS = _path_cells()
+PATH_CELLS = path_cells(PATH)
 
 # --------------------------------------------------------------- levels
 # Two tower-defense levels. Each level is a list of waves; each wave is a
 # list of (monster_kind, delay_seconds) measured from the wave start.
 LEVELS = [
     dict(
-        name="Level 1 - Garden Path",
+        name="第一关 · 花园小径",
+        path=PATH,
+        grass=((126, 176, 96), (112, 162, 84)),
         waves=[
             [("slime", 0.0), ("slime", 3.0), ("slime", 6.0)],
             [("slime", 0.0), ("bat", 2.0), ("slime", 5.0), ("bat", 8.0)],
         ],
     ),
     dict(
-        name="Level 2 - Dark Forest",
+        name="第二关 · 林间转角",
+        path=[(3, -1), (3, 3), (16, 3), (16, 8), (5, 8), (5, 11), (18, 11)],
+        grass=((78, 128, 102), (67, 114, 90)),
         waves=[
             [("bat", 0.0), ("slime", 3.0), ("thrower", 6.0)],
             [("slime", 0.0), ("golem", 3.0), ("bat", 6.0), ("bat", 9.0)],

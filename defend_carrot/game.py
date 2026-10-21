@@ -10,12 +10,13 @@ Run with:  python main.py
 from __future__ import annotations
 
 import sys
-from typing import List, Optional, Tuple
+from typing import List, Optional
 
 import pygame
 
 import config as C
 from guide import FieldGuide
+from ui import GameUI, load_font
 from entities import (
     Apple, Bat, Bullet, Carrot, Effect, Fruit, Golem, Melon, Monster, Orange,
     Rock, RockThrower, Slime, tile_center,
@@ -33,12 +34,12 @@ class Game:
         self.screen = pygame.display.set_mode((C.SCREEN_W, C.SCREEN_H))
         pygame.display.set_caption(C.TITLE)
         self.clock = pygame.time.Clock()
-        # pygame's default bundled font avoids SysFont's Windows registry scan.
-        self.font = pygame.font.Font(None, 24)
-        self.big_font = pygame.font.Font(None, 56)
-        self.small_font = pygame.font.Font(None, 20)
+        self.font = load_font(19)
+        self.small_font = load_font(15)
         self.guide = FieldGuide()
+        self.ui = GameUI(self)
         self.reset()
+        self.state = "menu"
 
     # ------------------------------------------------------------ lifecycle
     def reset(self) -> None:
@@ -48,18 +49,13 @@ class Game:
         self.rocks: List[Rock] = []
         self.effects: List[Effect] = []
 
-        self.carrot = Carrot(*C.CARROT_TILE)
-        self.path: List[Tuple[float, float]] = [
-            tile_center(c, r) for (c, r) in C.PATH
-        ]
-
         self.coins = C.START_COINS
         self.selected: Optional[str] = None
         self.level_index = 0
         self.wave_index = 0
         self.wave_timer = 0.0
         self.spawn_queue: List[list] = []
-        self.state = "playing"       # playing | won | lost
+        self.state = "playing"       # menu | playing | paused | levelclear | won | lost
         self.elapsed = 0.0
         self.kills = 0
         self.score = 0
@@ -73,6 +69,14 @@ class Game:
         if index >= len(C.LEVELS):
             return
         self.level_index = index
+        level = C.LEVELS[index]
+        self.path = [tile_center(c, r) for c, r in level["path"]]
+        self.path_cells = C.path_cells(level["path"])
+        self.carrot_tile = level["path"][-1]
+        self.carrot = Carrot(*self.carrot_tile)
+        for name in ("fruits", "monsters", "bullets", "rocks", "effects"):
+            setattr(self, name, [])
+        self.selected = None
         self.wave_index = 0
         self._load_wave(0)
         self.wave_timer = -2.0       # short grace before the first wave
@@ -94,9 +98,9 @@ class Game:
     def can_build(self, col: int, row: int) -> bool:
         if not (0 <= col < C.GRID_COLS and 0 <= row < C.GRID_ROWS):
             return False
-        if (col, row) in C.PATH_CELLS:
+        if (col, row) in self.path_cells:
             return False
-        if (col, row) == C.CARROT_TILE:
+        if (col, row) == self.carrot_tile:
             return False
         return self.fruit_at(col, row) is None
 
@@ -144,9 +148,20 @@ class Game:
 
     def _advance_level(self) -> None:
         if self.level_index + 1 < len(C.LEVELS):
+            self.state = "levelclear"
+
+    def _continue(self) -> None:
+        if self.state == "paused":
+            self.state = "playing"
+        elif self.state == "levelclear":
+            # New terrain invalidates old tower positions. Return their cost
+            # before clearing the board, preserving earned coins and score.
+            self.coins += sum(C.FRUITS[f.kind]["cost"] for f in self.fruits if f.alive)
             self._load_level(self.level_index + 1)
             self.wave_timer = -C.LEVEL_BREAK
             self.state = "playing"
+        elif self.state in ("menu", "won", "lost"):
+            self.reset()
 
     def _reap(self) -> None:
         for name in ("fruits", "monsters", "bullets", "rocks", "effects"):
@@ -179,10 +194,23 @@ class Game:
             return
         if event.type == pygame.KEYDOWN:
             if event.key == pygame.K_ESCAPE:
-                pygame.quit()
-                sys.exit(0)
-            if event.key == pygame.K_r and self.state != "playing":
+                if self.state == "menu":
+                    pygame.quit()
+                    sys.exit(0)
+                self.state = "paused" if self.state == "playing" else "menu"
+                return
+            if event.key == pygame.K_p:
+                if self.state in ("playing", "paused"):
+                    self.state = "paused" if self.state == "playing" else "playing"
+                return
+            if event.key == pygame.K_RETURN:
+                self._continue()
+                return
+            if event.key == pygame.K_r and self.state in ("won", "lost"):
                 self.reset()
+                return
+            if self.state != "playing":
+                return
             if event.key in (pygame.K_1, pygame.K_2, pygame.K_3):
                 idx = event.key - pygame.K_1
                 if idx < len(C.SHOP_ORDER):
@@ -192,13 +220,29 @@ class Game:
                 self.guide_open = True
                 return
             if self.state != "playing":
-                self.reset()
+                if self.ui.primary_rect.collidepoint(event.pos):
+                    self._continue()
+                elif self.ui.secondary_rect.collidepoint(event.pos):
+                    if self.state == "menu":
+                        self.guide_open = True
+                    else:
+                        self.state = "menu"
+                return
+            if self.ui.pause_rect.collidepoint(event.pos):
+                self.state = "paused"
                 return
             self._on_click(event.pos)
-        if event.type == pygame.MOUSEBUTTONDOWN and event.button == 3:
+        if (event.type == pygame.MOUSEBUTTONDOWN and event.button == 3
+                and self.state == "playing"):
             self.selected = None
 
     def _on_click(self, pos) -> None:
+        if self.state != "playing" or self.guide_open:
+            return
+        for i, kind in enumerate(C.SHOP_ORDER):
+            if self._card_rect(i).collidepoint(pos):
+                self.selected = kind
+                return
         if self.selected is None:
             return
         col = pos[0] // C.TILE
@@ -214,7 +258,7 @@ class Game:
 
     # ------------------------------------------------------------------ draw
     def draw(self) -> None:
-        self.screen.fill(C.COL_GRASS)
+        self.screen.fill(C.LEVELS[self.level_index]["grass"][0])
         self._draw_field()
         for e in (self.fruits + self.monsters + self.bullets + self.rocks
                   + [self.carrot] + self.effects):
@@ -222,7 +266,9 @@ class Game:
         self._draw_hud()
         self._draw_shop()
         if self.state != "playing":
-            self._draw_overlay()
+            self.ui.draw_overlay()
+        else:
+            self.ui.button(self.ui.pause_rect, "暂停防守  [P]")
         self.guide.draw_button(self.screen)
         if self.guide_open:
             self.guide.draw(self.screen)
@@ -231,9 +277,9 @@ class Game:
     def _draw_field(self) -> None:
         for row in range(C.GRID_ROWS):
             for col in range(C.GRID_COLS):
-                if (col, row) in C.PATH_CELLS:
+                if (col, row) in self.path_cells:
                     continue
-                base = C.COL_GRASS if (row + col) % 2 == 0 else C.COL_GRASS_B
+                base = C.LEVELS[self.level_index]["grass"][(row + col) % 2]
                 x, y = col * C.TILE, C.HUD_H + row * C.TILE
                 pygame.draw.rect(self.screen, base, (x, y, C.TILE, C.TILE))
         # Path.
@@ -259,23 +305,23 @@ class Game:
             pygame.draw.circle(self.screen, spec["color"],
                                (rect.x + 26, rect.y + 34), 17)
             name = self.small_font.render(f"{i + 1}. {spec['label']}", True, C.COL_TEXT)
-            cost = self.small_font.render(f"{spec['cost']} coins", True, (150, 90, 0))
-            hp = self.small_font.render(f"HP {spec['hp']}", True, (90, 90, 90))
+            cost = self.small_font.render(f"{spec['cost']} 金币", True, (150, 90, 0))
+            hp = self.small_font.render(f"伤害 {spec['damage']}", True, (90, 90, 90))
             self.screen.blit(name, (rect.x + 48, rect.y + 12))
             self.screen.blit(cost, (rect.x + 48, rect.y + 32))
             self.screen.blit(hp, (rect.x + 48, rect.y + 50))
 
     def _draw_hud(self) -> None:
         pygame.draw.rect(self.screen, C.COL_HUD_BG, (0, 0, C.SCREEN_W, C.HUD_H))
-        coin = self.font.render(f"Coins: {self.coins}", True, (255, 230, 120))
+        coin = self.font.render(f"金币 {self.coins}", True, (255, 230, 120))
         self.screen.blit(coin, (14, 16))
         level = C.LEVELS[self.level_index]
         waves = len(level["waves"])
         info = self.font.render(
-            f"{level['name']}   Wave {min(self.wave_index + 1, waves)}/{waves}",
+            f"{level['name']}   波次 {min(self.wave_index + 1, waves)}/{waves}",
             True, (240, 240, 240))
         self.screen.blit(info, (190, 8))
-        kills = self.small_font.render(f"Kills: {self.kills}   Score: {self.score}", True, (220, 220, 220))
+        kills = self.small_font.render(f"击杀 {self.kills}   积分 {self.score}", True, (220, 220, 220))
         self.screen.blit(kills, (190, 34))
         # Carrot HP bar.
         bar_w = 180
@@ -284,21 +330,8 @@ class Game:
         frac = max(0.0, self.carrot.hp / self.carrot.max_hp)
         pygame.draw.rect(self.screen, C.COL_HP_FG,
                          (x, 20, int(bar_w * frac), 16), border_radius=6)
-        label = self.small_font.render("Carrot HP", True, (240, 240, 240))
+        label = self.small_font.render(f"萝卜生命 {max(0, self.carrot.hp):g}/{C.CARROT_HP}", True, (240, 240, 240))
         self.screen.blit(label, (x, 2))
-
-    def _draw_overlay(self) -> None:
-        overlay = pygame.Surface((C.SCREEN_W, C.SCREEN_H), pygame.SRCALPHA)
-        overlay.fill((0, 0, 0, 140))
-        self.screen.blit(overlay, (0, 0))
-        msg = "LEVEL CLEAR!" if self.state == "won" else "THE CARROT FELL!"
-        color = (140, 255, 150) if self.state == "won" else (255, 130, 130)
-        text = self.big_font.render(msg, True, color)
-        self.screen.blit(text, text.get_rect(center=(C.SCREEN_W // 2, C.SCREEN_H // 2 - 20)))
-        sub = self.font.render("Click or press R to play again", True, (240, 240, 240))
-        self.screen.blit(sub, sub.get_rect(center=(C.SCREEN_W // 2, C.SCREEN_H // 2 + 40)))
-        stats = self.font.render(f"Score: {self.score}   Kills: {self.kills}", True, (255, 230, 120))
-        self.screen.blit(stats, stats.get_rect(center=(C.SCREEN_W // 2, C.SCREEN_H // 2 + 80)))
 
     # ------------------------------------------------------------------- run
     def run(self) -> None:

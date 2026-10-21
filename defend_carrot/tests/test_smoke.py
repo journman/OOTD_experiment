@@ -38,22 +38,32 @@ BUILD_ORDER = (
     + [("apple", 12, 5), ("melon", 17, 9), ("orange", 6, 9)]
     + [("apple", 3, 1), ("apple", 7, 5), ("orange", 2, 9)]
 )
+FOREST_BUILD_ORDER = [
+    ("apple", 4, 1), ("apple", 6, 4), ("apple", 11, 4),
+    ("apple", 15, 6), ("apple", 10, 7), ("apple", 6, 10),
+    ("melon", 17, 10), ("orange", 4, 6), ("apple", 8, 10),
+]
 
 
 def run_headless(max_seconds=300.0):
     game = Game()
+    game.handle_event(pygame.event.Event(pygame.KEYDOWN, key=pygame.K_RETURN))
     dt = 1.0 / C.FPS
     steps = int(max_seconds / dt)
     todo = list(BUILD_ORDER)
     for i in range(steps):
+        if game.state == "levelclear":
+            game.handle_event(pygame.event.Event(pygame.KEYDOWN, key=pygame.K_RETURN))
+            todo = list(FOREST_BUILD_ORDER)
         if todo and i % 25 == 0:
             kind, col, row = todo[0]
             if game.coins >= C.FRUITS[kind]["cost"] and game.can_build(col, row):
                 place(game, kind, col, row)
                 todo.pop(0)
         game.update(dt)
-        game.draw()
-        if game.state != "playing":
+        if i % 120 == 0:
+            game.draw()
+        if game.state in ("won", "lost"):
             return game
     return game
 
@@ -66,11 +76,9 @@ def main():
     print("kills       :", result.kills)
     print("carrot hp   :", result.carrot.hp)
     print("fruits alive:", len(result.fruits))
-    assert result.state in ("won", "lost"), "match never reached an end state"
-    if result.state == "won":
-        print("PASS: both levels cleared")
-    else:
-        print("NOTE: bot lost this run (logic still executed without error)")
+    assert result.state == "won", "scripted defense must clear both maps"
+    assert result.level_index == len(C.LEVELS) - 1
+    print("PASS: both distinct maps cleared with normal coins and tower refunds")
 
 
 if __name__ == "__main__":

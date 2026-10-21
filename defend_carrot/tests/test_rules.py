@@ -24,6 +24,7 @@ def escape(game):
 def main():
     g = Game()
     try:
+        g.reset()
         coins = g.coins
         escape(g)
         g.update(1 / 60)
@@ -49,7 +50,7 @@ def main():
 
         for hp, expected in ((1, 'lost'), (2, 'won')):
             g.reset()
-            g.level_index = len(C.LEVELS) - 1
+            g._load_level(len(C.LEVELS) - 1)
             g.wave_index = len(C.LEVELS[-1]['waves']) - 1
             g.spawn_queue = []
             g.carrot.hp = hp
