@@ -15,6 +15,7 @@ from typing import List, Optional, Tuple
 import pygame
 
 import config as C
+from guide import FieldGuide
 from entities import (
     Apple, Bat, Bullet, Carrot, Effect, Fruit, Golem, Melon, Monster, Orange,
     Rock, RockThrower, Slime, tile_center,
@@ -36,6 +37,7 @@ class Game:
         self.font = pygame.font.Font(None, 24)
         self.big_font = pygame.font.Font(None, 56)
         self.small_font = pygame.font.Font(None, 20)
+        self.guide = FieldGuide()
         self.reset()
 
     # ------------------------------------------------------------ lifecycle
@@ -60,6 +62,8 @@ class Game:
         self.state = "playing"       # playing | won | lost
         self.elapsed = 0.0
         self.kills = 0
+        self.score = 0
+        self.guide_open = False
         self._load_level(0)
 
     def path_px(self, seg: int, frac: float):
@@ -103,14 +107,18 @@ class Game:
 
     # ---------------------------------------------------------------- update
     def update(self, dt: float) -> None:
-        if self.state != "playing":
+        if self.state != "playing" or self.guide_open:
             return
         self.elapsed += dt
         self._update_waves(dt)
         for group in (self.fruits, self.monsters, self.bullets,
                       self.rocks, self.effects):
             for e in group:
-                e.update(dt, self)
+                if e.alive:
+                    e.update(dt, self)
+                if self.state != "playing":
+                    self._reap()
+                    return
         self._reap()
         self._check_victory()
 
@@ -144,20 +152,31 @@ class Game:
         for name in ("fruits", "monsters", "bullets", "rocks", "effects"):
             group = getattr(self, name)
             for e in group:
-                if not e.alive and isinstance(e, Monster):
+                if not e.alive and isinstance(e, Monster) and not e.escaped:
                     self.coins += e.reward
                     self.kills += 1
+                    self.score += e.reward
             setattr(self, name, [e for e in group if e.alive])
 
     def _check_victory(self) -> None:
         waves = C.LEVELS[self.level_index]["waves"]
         last_level = self.level_index >= len(C.LEVELS) - 1
-        if (last_level and self.wave_index >= len(waves) - 1
+        if (self.state == "playing" and self.carrot.alive
+                and last_level and self.wave_index >= len(waves) - 1
                 and not self.spawn_queue and not self.monsters):
             self.state = "won"
 
     # ----------------------------------------------------------------- input
     def handle_event(self, event: pygame.event.Event) -> None:
+        if event.type == pygame.KEYDOWN and event.key == pygame.K_i:
+            self.guide_open = not self.guide_open
+            return
+        if self.guide_open:
+            if (event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE
+                    or event.type == pygame.MOUSEBUTTONDOWN and event.button == 1
+                    and self.guide.close_rect.collidepoint(event.pos)):
+                self.guide_open = False
+            return
         if event.type == pygame.KEYDOWN:
             if event.key == pygame.K_ESCAPE:
                 pygame.quit()
@@ -169,6 +188,9 @@ class Game:
                 if idx < len(C.SHOP_ORDER):
                     self.selected = C.SHOP_ORDER[idx]
         if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
+            if self.guide.button_rect.collidepoint(event.pos):
+                self.guide_open = True
+                return
             if self.state != "playing":
                 self.reset()
                 return
@@ -201,6 +223,9 @@ class Game:
         self._draw_shop()
         if self.state != "playing":
             self._draw_overlay()
+        self.guide.draw_button(self.screen)
+        if self.guide_open:
+            self.guide.draw(self.screen)
         pygame.display.flip()
 
     def _draw_field(self) -> None:
@@ -250,7 +275,7 @@ class Game:
             f"{level['name']}   Wave {min(self.wave_index + 1, waves)}/{waves}",
             True, (240, 240, 240))
         self.screen.blit(info, (190, 8))
-        kills = self.small_font.render(f"Kills: {self.kills}", True, (220, 220, 220))
+        kills = self.small_font.render(f"Kills: {self.kills}   Score: {self.score}", True, (220, 220, 220))
         self.screen.blit(kills, (190, 34))
         # Carrot HP bar.
         bar_w = 180
@@ -272,6 +297,8 @@ class Game:
         self.screen.blit(text, text.get_rect(center=(C.SCREEN_W // 2, C.SCREEN_H // 2 - 20)))
         sub = self.font.render("Click or press R to play again", True, (240, 240, 240))
         self.screen.blit(sub, sub.get_rect(center=(C.SCREEN_W // 2, C.SCREEN_H // 2 + 40)))
+        stats = self.font.render(f"Score: {self.score}   Kills: {self.kills}", True, (255, 230, 120))
+        self.screen.blit(stats, stats.get_rect(center=(C.SCREEN_W // 2, C.SCREEN_H // 2 + 80)))
 
     # ------------------------------------------------------------------- run
     def run(self) -> None:

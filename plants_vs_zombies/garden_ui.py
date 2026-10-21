@@ -189,6 +189,7 @@ class GardenUI:
         progress_label = "冒险已通关 · 进入地图重玩" if g.adventure_completed() else f"继续闯关 · {C.LEVELS[index]['id']}"
         self.text(progress_label, (572, 393), 16,
                   (214, 215, 188), outline=(63, 68, 65))
+        self.button(g.almanac.menu_rect, "植物与僵尸图鉴 [I]", "stone", size=21)
         self.panel(pygame.Rect(38, 498, 312, 61), "wood")
         self.text("你的庭院，等你来守护", (194, 518), 19, bold=True, outline=(35, 28, 14))
         self.text("Enter 冒险  ·  F 全屏  ·  Esc 退出", (194, 543), 13)

@@ -184,6 +184,7 @@ class Monster(Entity):
         self.max_hp = float(spec["hp"])
         self.speed_tiles = float(spec["speed"])
         self.reward = int(spec["reward"])
+        self.escaped = False
         self.bite = float(spec["bite"])
         self.color = spec["color"]
         self.label = spec["label"]
@@ -245,6 +246,7 @@ class Monster(Entity):
                 self.y += dy / seg_len * dist
                 dist = 0
         if self.seg >= len(game.path) - 1:
+            self.escaped = True
             game.damage_carrot(self.bite)
             self.alive = False
 

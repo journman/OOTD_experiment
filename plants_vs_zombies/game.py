@@ -21,6 +21,7 @@ import pygame
 import config as C
 import save as savegame
 from assets import get_assets
+from almanac import Almanac
 from newplants import NEW_PLANT_CLASSES
 from garden_ui import (GardenUI, mode_rect, level_rect, BACK_RECT,
                        CHOOSER_BACK_RECT, CHOOSER_START_RECT,
@@ -83,6 +84,7 @@ class Game:
         # window, so fullscreen and resizing need no coordinate changes.
         self.canvas = pygame.Surface((C.SCREEN_W, C.SCREEN_H)).convert()
         self.ui = GardenUI(self, load_font)
+        self.almanac = Almanac(self)
         self.fullscreen = False
         self._load_progress()
 
@@ -299,7 +301,7 @@ class Game:
 
     # ---------------------------------------------------------------- update
     def update(self, dt: float) -> None:
-        if self.state != "playing":
+        if self.state != "playing" or self.almanac.opened:
             return
         self.elapsed += dt
         self.frost_timer = max(0.0, self.frost_timer - dt)
@@ -416,6 +418,17 @@ class Game:
             self.windowed_size = (max(400, event.w), max(300, event.h))
             self.screen = pygame.display.set_mode(self.windowed_size,
                                                   pygame.RESIZABLE)
+            return
+
+        if event.type == pygame.KEYDOWN and event.key == pygame.K_i:
+            self.almanac.opened = not self.almanac.opened
+            return
+        if self.almanac.opened:
+            if event.type == pygame.KEYDOWN and event.key == pygame.K_f:
+                self.toggle_fullscreen()
+            else:
+                pos = self._to_canvas(event.pos) if hasattr(event, 'pos') else None
+                self.almanac.handle_event(event, pos)
             return
 
         if event.type == pygame.KEYDOWN:
@@ -613,6 +626,9 @@ class Game:
         return mode_rect(which)
 
     def _on_mode_click(self, pos) -> None:
+        if self.almanac.menu_rect.collidepoint(pos):
+            self.almanac.opened = True
+            return
         if self._mode_rect(0).collidepoint(pos):
             self.start_adventure()
         elif self._mode_rect(1).collidepoint(pos):
@@ -651,6 +667,10 @@ class Game:
 
     # ------------------------------------------------------------------ draw
     def draw(self) -> None:
+        if self.almanac.opened:
+            self.almanac.draw()
+            self._present()
+            return
         if self.state == "menu":
             self._draw_menu()
         elif self.state == "levelselect":

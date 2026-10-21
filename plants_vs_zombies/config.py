@@ -275,6 +275,15 @@ PLANTS.update({
                       sprite="IceShroom", card="iceshroom", recharge=50.0, mushroom=True),
 })
 PLANT_HELP = {
+    "sunflower": "每9秒生产25阳光，维持防线经济",
+    "peashooter": "向同一行发射豌豆，每发造成22伤害",
+    "wallnut": "400生命值的屏障，阻挡僵尸；不会攻击",
+    "snowpea": "每发22伤害，并让无报纸保护的僵尸减速",
+    "cherrybomb": "种下1.2秒后爆炸，对附近敌人造成900伤害",
+    "repeater": "每轮同时发射两颗豌豆，每颗22伤害",
+    "threepeater": "向本行及相邻行发射豌豆，每颗22伤害",
+    "potatomine": "准备6秒后接触触发，对一只敌人造成900伤害",
+    "jalapeno": "种下1秒后清扫本行，造成900伤害",
     "puffshroom": "免费；射程三格；白天睡觉",
     "sunshroom": "先产15阳光，120秒后产25；白天睡觉",
     "scaredyshroom": "整行射击；附近有僵尸时躲藏；白天睡觉",
@@ -304,6 +313,13 @@ ZOMBIES.update({
                        damage=45.0, color=(175, 165, 150), label="Newspaper Zombie"),
 })
 ZOMBIE_NAMES = {"normal": "普通", "cone": "路障", "bucket": "铁桶", "flag": "旗帜", "newspaper": "读报"}
+ZOMBIE_HELP = {
+    "normal": "基础敌人，靠近植物后啃食",
+    "cone": "路障提高生命值，需要更多火力",
+    "bucket": "铁桶提供高生命值，可用爆炸或吞噬应对",
+    "flag": "波次领头单位，移动稍快，没有增益光环",
+    "newspaper": "报纸耐久80，挡住寒冰豌豆减速；破损后移速变为2.5倍",
+}
 
 # ------------------------------------------------------------- combat
 PEA_DAMAGE = 22
