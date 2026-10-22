@@ -86,7 +86,8 @@ def main():
                     game.carrot.expression.elapsed, game.carrot.expression_timer,
                     game.monsters[0].x, game.monsters[0].y, game.coins)
 
-        game.carrot.take_damage(1)
+        game.carrot.expression.restart()
+        game.carrot.expressing = True
         for state, guide in (('paused', False), ('playing', True), ('menu', False)):
             game.state, game.guide_open = state, guide
             before = snapshot()

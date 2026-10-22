@@ -32,7 +32,7 @@ import pygame
 
 import config as C
 from art import (fruit_image, character_image, sprite_image, TOWER_ATLASES,
-                 ATTACK_FRAMES, WALK_FRAMES, CARROT_FRAMES)
+                 ATTACK_FRAMES, WALK_FRAMES, CARROT_FRAMES, CARROT_HEALTH_FRAMES)
 from animation import Animation
 
 if TYPE_CHECKING:
@@ -123,19 +123,19 @@ class Fruit(Entity):
     def draw(self, surface: pygame.Surface) -> None:
         cx, cy = int(self.x), int(self.y)
         frame = self.attack_animation.frame if self._attacking and self.kind != 'melon' else None
-        sprite = character_image(self.kind, 48, self._hit_flash > 0, frame=frame)
+        sprite = character_image(self.kind, C.TOWER_SPRITE_SIZE, self._hit_flash > 0, frame=frame)
         if sprite is None:
-            sprite = fruit_image(self.kind, 48, self._hit_flash > 0)
+            sprite = fruit_image(self.kind, C.TOWER_SPRITE_SIZE, self._hit_flash > 0)
         elif self.kind != 'melon':
             sprite = pygame.transform.rotate(sprite, self.aim_angle)
         surface.blit(sprite, sprite.get_rect(center=(cx, cy)))
         if self.kind == 'melon' and self._attacking:
-            halo = character_image(self.kind, 84, frame=self.attack_animation.frame)
+            halo = character_image(self.kind, C.TOWER_SPRITE_SIZE + 44, frame=self.attack_animation.frame)
             if halo is not None:
                 surface.blit(halo, halo.get_rect(center=(cx, cy)))
         if self.hp < self.max_hp:
             w = 30
-            x, y = cx - w // 2, cy - 24
+            x, y = cx - w // 2, cy - C.TOWER_SPRITE_SIZE // 2 - 4
             pygame.draw.rect(surface, (37, 59, 40), (x - 1, y - 1, w + 2, 6), border_radius=3)
             pygame.draw.rect(surface, C.COL_HP_FG,
                              (x, y, int(w * self.hp / self.max_hp), 4))
@@ -235,6 +235,8 @@ class Monster(Entity):
         """Hook for ranged monsters; default does nothing."""
 
     def advance(self, dt: float, game: "Game") -> None:
+        if not self.alive or self.escaped:
+            return
         dist = self.speed * dt
         while dist > 0 and self.seg < len(game.path) - 1:
             nx, ny = game.path[self.seg + 1]
@@ -252,12 +254,13 @@ class Monster(Entity):
                 dist = 0
         if self.seg >= len(game.path) - 1:
             self.escaped = True
-            game.damage_carrot(self.bite)
+            game.damage_carrot(C.CARROT_ESCAPE_DAMAGE)
             self.alive = False
 
     def draw(self, surface: pygame.Surface) -> None:
         cx, cy = int(self.x), int(self.y)
-        sprite = character_image(self.kind, 56 if self.kind == 'golem' else 48,
+        size = C.LARGE_MONSTER_SPRITE_SIZE if self.kind == 'golem' else C.MONSTER_SPRITE_SIZE
+        sprite = character_image(self.kind, size,
                                  flash=self._hit_flash > 0,
                                  frame=self.walk_animation.frame, flip=self.facing_left)
         if sprite is not None:
@@ -267,7 +270,7 @@ class Monster(Entity):
             pygame.draw.circle(surface, body, (cx, cy), 13)
             self.draw_detail(surface, cx, cy)
         w = 26
-        x, y = cx - w // 2, cy - 26
+        x, y = cx - w // 2, cy - size // 2 - 5
         fraction = max(0, min(1, self.hp / self.max_hp))
         pygame.draw.rect(surface, (40, 52, 42), (x - 1, y - 1, w + 2, 6), border_radius=3)
         pygame.draw.rect(surface, (161, 199, 105) if fraction > .35 else (233, 122, 91),
@@ -419,15 +422,22 @@ class Carrot(Entity):
         self.expression = Animation(CARROT_FRAMES, .12, loop=False)
         self.expression_timer = 0.0
         self.expressing = False
+        self.hurt_timer = 0.0
 
     def take_damage(self, amount: float) -> None:
-        self.hp -= amount
-        self.expression.restart()
-        self.expressing = True
+        if not self.alive:
+            return
+        self.hp = max(0, self.hp - amount)
+        self.expressing = False
+        self.hurt_timer = .25
         if self.hp <= 0:
             self.alive = False
 
     def update(self, dt: float, game: "Game") -> None:
+        self.hurt_timer = max(0, self.hurt_timer - dt)
+        if self.hp < self.max_hp:
+            self.expressing = False
+            return
         self.expression_timer += dt
         if self.expressing:
             self.expression.update(dt)
@@ -437,12 +447,19 @@ class Carrot(Entity):
             self.expression.restart()
             self.expressing = True
 
+    @property
+    def sprite_frame(self):
+        if self.hp == self.max_hp and self.expressing:
+            return self.expression.frame
+        return CARROT_HEALTH_FRAMES[max(0, min(C.CARROT_HP, int(self.hp)))]
+
     def draw(self, surface: pygame.Surface) -> None:
         cx, cy = int(self.x), int(self.y)
-        sprite = character_image('carrot', 74,
-                                 frame=self.expression.frame if self.expressing else None)
+        if self.hurt_timer:
+            cx += round(math.sin(self.hurt_timer * 55) * 3)
+        sprite = character_image('carrot', C.CARROT_SPRITE_SIZE, frame=self.sprite_frame)
         if sprite is not None:
-            surface.blit(sprite, sprite.get_rect(center=(cx, cy - 7)))
+            surface.blit(sprite, sprite.get_rect(center=(cx, cy - 16)))
             return
         pygame.draw.polygon(surface, (240, 140, 40),
                             [(cx, cy + 20), (cx - 13, cy - 8), (cx + 13, cy - 8)])

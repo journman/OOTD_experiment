@@ -15,14 +15,32 @@ See the repository's THIRD_PARTY_NOTICES.md for ownership information.
   change silhouette, wings and limbs. They are not static images with a scale effect.
 - Items01: original carrot and expression frames.
 - Theme1/Theme2 BG0: original sky/jungle backdrops.
-- Theme1/Theme2 BG1: road textures sampled at runtime and arranged along the
-  existing game path; the original map's baked route is not used as our route.
+- Theme1/Theme2 BG1: road interior textures sampled at runtime and clipped to one
+  continuous road surface. Borders and cloud lobes follow the same outline at
+  every join; the original map's baked route is not used as our route.
 
 `art.py` restores TexturePacker rotation, source canvas and trim position before
 scaling. Keeping the source canvas avoids jitter between animation frames.
 `animation.py` advances frames only from `update(dt)`. Drawing, pause, menus and
 the guide do not advance simulation time. No GIF decoder or new runtime dependency
 is required; the GIF under docs/screenshots is a preview of actual gameplay.
+
+## Road, health and scale revision (2026-10-22)
+
+- Roads are rasterized at 3x resolution and reduced with antialiasing. The whole
+  route shares one mirrored texture origin. Straight-tile borders no longer
+  overwrite each other at turns. Route shape is independent of traversal order.
+- The carrot now has three lives; every monster that reaches it consumes one
+  life, independently of that monster's damage against towers.
+- Health states use original frames: 3 HP = `hlb10.png`, 2 HP = `hlb6.png`,
+  1 HP = `hlb2.png`, 0 HP = `hlb1.png`. These are adaptations of the original
+  game's damage stages to the new three-life rule. Damaged states keep their
+  shared source canvas, stay anchored to the same ground point and cannot be
+  replaced by the healthy expression animation.
+- Tower source canvases scale from 48 to 64 pixels, normal monsters from 48 to
+  64, the larger monster from 56 to 72, and carrot from 74 to 104. Cards, guide
+  icons, previews and health bar positions are adjusted. Collision sizes,
+  occupied cells and targeting ranges remain unchanged.
 
 The course's legacy class/registry IDs remain `Apple/apple`, `Orange/orange`,
 `Melon/melon`; they display bottle, fan and sun graphics respectively. This change

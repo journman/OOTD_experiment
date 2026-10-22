@@ -19,7 +19,8 @@ def main():
             code = "import runpy,save;save.SAVE_PATH=" + repr(str(Path(temp) / "save.json"))
             code += ";runpy.run_path(" + repr("tests/" + test + ".py") + ",run_name='__main__')"
             subprocess.run([sys.executable, "-c", code], cwd=ROOT / "plants_vs_zombies", env=env, check=True)
-        for test in ("test_rules", "test_ui_flow", "test_placement", "test_animation", "test_smoke"):
+        for test in ("test_rules", "test_ui_flow", "test_placement", "test_animation",
+                     "test_roads", "test_carrot_health", "test_smoke"):
             subprocess.run([sys.executable, "tests/" + test + ".py"], cwd=ROOT / "defend_carrot", env=env, check=True)
     print("PASS: both source games and all progression/save checks")
 

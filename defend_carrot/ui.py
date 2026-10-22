@@ -65,7 +65,7 @@ class GameUI:
             pygame.draw.rect(g.screen, color, rect, border_radius=10)
             pygame.draw.rect(g.screen, (201, 150, 51) if selected else (162, 157, 113),
                              rect, 3 if selected else 1, border_radius=10)
-            sprite = fruit_image(kind, 48)
+            sprite = fruit_image(kind, 56)
             if not affordable:
                 sprite = pygame.transform.grayscale(sprite)
             g.screen.blit(sprite, sprite.get_rect(center=(rect.x + 27, rect.y + 37)))
@@ -95,12 +95,17 @@ class GameUI:
         self.text(f'萝卜生命 {max(0, g.carrot.hp):g}/{C.CARROT_HP}', (693, 13), 13)
         rect = pygame.Rect(605, 28, 176, 15)
         pygame.draw.rect(g.screen, (20, 38, 28), rect.inflate(4, 4), border_radius=8)
-        fraction = max(0, min(1, g.carrot.hp / g.carrot.max_hp))
-        if fraction:
-            fill = rect.copy()
-            fill.w = max(1, round(rect.w * fraction))
-            pygame.draw.rect(g.screen, (237, 117, 94) if fraction < .4 else (160, 203, 101), fill, border_radius=6)
-            pygame.draw.line(g.screen, (224, 238, 153), (fill.x + 2, fill.y + 3), (max(fill.x + 2, fill.right - 3), fill.y + 3), 2)
+        color = ((160, 203, 101) if g.carrot.hp == 3 else
+                 (239, 187, 75) if g.carrot.hp == 2 else (237, 117, 94))
+        for i in range(C.CARROT_HP):
+            left = rect.x + round(i * rect.w / C.CARROT_HP)
+            right = rect.x + round((i + 1) * rect.w / C.CARROT_HP)
+            slot = pygame.Rect(left + 1, rect.y, right - left - 3, rect.h)
+            filled = i < g.carrot.hp
+            pygame.draw.rect(g.screen, color if filled else (59, 77, 55), slot, border_radius=4)
+            if filled:
+                pygame.draw.line(g.screen, (255, 235, 174),
+                                 (slot.x + 3, slot.y + 3), (slot.right - 4, slot.y + 3), 2)
 
     def draw_placement(self, pos=None):
         g = self.game
@@ -124,7 +129,7 @@ class GameUI:
         pygame.draw.rect(overlay, (*color, 55), rect, border_radius=5)
         pygame.draw.rect(overlay, (*color, 230), rect, 2, border_radius=5)
         if g.selected:
-            ghost = fruit_image(kind, 48).copy()
+            ghost = fruit_image(kind, C.TOWER_SPRITE_SIZE).copy()
             ghost.set_alpha(150)
             overlay.blit(ghost, ghost.get_rect(center=(x, y)))
         g.screen.blit(overlay, (0, C.HUD_H))
@@ -166,7 +171,7 @@ class GameUI:
         if g.state == 'menu':
             lines = ('两张地图 · 三种防御塔 · 四类来袭怪物',
                      '1–3 或点击卡片选塔，左键建造，右键取消',
-                     '击杀获得金币与积分，漏怪只扣萝卜生命',
+                     '萝卜只有 3 血，每漏过一只怪物扣 1 血',
                      'I 查看图鉴，P 暂停；Esc 暂停或返回菜单')
             primary, secondary = '开始挑战  [Enter]', '防御塔与怪物图鉴  [I]'
         else:

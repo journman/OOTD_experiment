@@ -30,6 +30,7 @@ ATTACK_FRAMES = {
 }
 IDLE_FRAMES = {'apple': 'Bottle11.png', 'orange': 'Fan11.png', 'melon': 'Sun11.png'}
 CARROT_FRAMES = ('hlb10.png', 'hlb21.png', 'hlb22.png', 'hlb10.png')
+CARROT_HEALTH_FRAMES = {3: 'hlb10.png', 2: 'hlb6.png', 1: 'hlb2.png', 0: 'hlb1.png'}
 CHARACTERS = (*TOWER_ATLASES, *WALK_FRAMES, 'carrot')
 
 

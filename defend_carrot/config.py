@@ -75,9 +75,16 @@ PATH = [(-1, 2), (17, 2), (17, 6), (2, 6), (2, 10), (18, 10)]
 CARROT_TILE = (18, 10)
 
 # ---------------------------------------------------------------- combat
-CARROT_HP = 20
+CARROT_HP = 3
+CARROT_ESCAPE_DAMAGE = 1    # Every escaped monster uses one of the three lives.
 BULLET_SPEED = 340.0
 MONSTER_HIT_RADIUS = 16
+
+# Display sizes are independent of targeting, occupied tiles and hit radii.
+TOWER_SPRITE_SIZE = 64
+MONSTER_SPRITE_SIZE = 64
+LARGE_MONSTER_SPRITE_SIZE = 72
+CARROT_SPRITE_SIZE = 104
 
 
 def path_cells(path):

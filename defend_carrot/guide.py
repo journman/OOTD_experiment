@@ -32,7 +32,7 @@ class FieldGuide:
         for i, kind in enumerate(C.SHOP_ORDER):
             spec = C.FRUITS[kind]
             y = 151 + i * 59
-            sprite = fruit_image(kind, 36)
+            sprite = fruit_image(kind, 44)
             surface.blit(sprite, sprite.get_rect(center=(47, y + 17)))
             self.text(surface, f"{spec['label']}  ·  攻击 {spec['damage']}  ·  价格 {spec['cost']}  ·  生命 {spec['hp']}", (75, y))
             ability = '范围伤害' if kind == 'melon' else '单体攻击'
@@ -40,14 +40,15 @@ class FieldGuide:
         self.text(surface, '来袭怪物', (30, 334), True)
         for i, (kind, spec) in enumerate(C.MONSTERS.items()):
             y = 379 + i * 58
-            sprite = character_image(kind, 38)
+            sprite = character_image(kind, 48)
             if sprite is not None:
                 surface.blit(sprite, sprite.get_rect(center=(47, y + 17)))
             else:
                 pygame.draw.circle(surface, spec['color'], (47, y + 17), 13)
             self.text(surface, f"{spec['label']}  ·  生命 {spec['hp']}  ·  速度 {spec['speed']:g} 格/秒", (75, y))
-            detail = f"到达终点扣 {spec['bite']} 血；击杀获得 {spec['reward']} 金币和积分"
+            detail = f"到达终点扣 {C.CARROT_ESCAPE_DAMAGE} 血；击杀获得 {spec['reward']} 金币和积分"
             if kind == 'thrower':
                 detail += f"；投石伤害 {spec['throw_damage']}"
             self.text(surface, detail, (75, y + 25))
         self.text(surface, '操作：1–3或点击卡片选塔，左键建塔；P 暂停，Enter 继续。', (30, 628))
+        self.text(surface, '萝卜只有3点生命：满血 → 受损 → 濒危；漏过第3只怪物失败。', (30, 657))
