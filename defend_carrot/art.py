@@ -13,6 +13,9 @@ TOWER_ATLASES = {
     'apple': 'Themes/Towers/TBottle-hd',
     'orange': 'Themes/Towers/TFan-hd',
     'melon': 'Themes/Towers/TSun-hd',
+    'star': 'Themes/Towers/TStar-hd', 'ice': 'Themes/Towers/TBlueStar-hd',
+    'poison': 'Themes/Towers/TPin-hd', 'rocket': 'Themes/Towers/TRocket-hd',
+    'snow': 'Themes/Towers/TSnow-hd',
 }
 MONSTER_ATLAS = 'Themes/Theme1/Items/Monsters01-hd'
 CARROT_ATLAS = 'Themes/Items/Items01-hd'
@@ -21,6 +24,10 @@ WALK_FRAMES = {
     'bat': ('fly_blue01.png', 'fly_blue02.png'),
     'golem': ('fat_green01.png', 'fat_green02.png'),
     'thrower': ('land_nima01.png', 'land_nima02.png'),
+    'yellow': ('fly_yellow01.png', 'fly_yellow02.png'),
+    'starling': ('land_star01.png', 'land_star02.png'),
+    'elite': ('fat_boss_green01.png', 'fat_boss_green02.png'),
+    'boss': ('boss_big01.png', 'boss_big02.png'),
 }
 ATTACK_FRAMES = {
     'apple': ('Bottle11.png', 'Bottle12.png', 'Bottle13.png', 'Bottle11.png'),
@@ -28,7 +35,11 @@ ATTACK_FRAMES = {
     # Sun uses a separate expanding attack layer over its static centre.
     'melon': tuple(f'PSun1{i}.png' for i in range(1, 6)),
 }
+for kind, prefix in (('star', 'Star'), ('ice', 'BStar'), ('poison', 'Pin'),
+                     ('rocket', 'Rocket'), ('snow', 'Snow')):
+    ATTACK_FRAMES[kind] = tuple(f'{prefix}1{i}.png' for i in (1, 2, 3, 1))
 IDLE_FRAMES = {'apple': 'Bottle11.png', 'orange': 'Fan11.png', 'melon': 'Sun11.png'}
+IDLE_FRAMES.update({kind: ATTACK_FRAMES[kind][0] for kind in ('star', 'ice', 'poison', 'rocket', 'snow')})
 CARROT_FRAMES = ('hlb10.png', 'hlb21.png', 'hlb22.png', 'hlb10.png')
 CARROT_HEALTH_FRAMES = {3: 'hlb10.png', 2: 'hlb6.png', 1: 'hlb2.png', 0: 'hlb1.png'}
 CHARACTERS = (*TOWER_ATLASES, *WALK_FRAMES, 'carrot')
@@ -46,7 +57,7 @@ def _numbers(value):
     return tuple(map(int, re.findall(r'-?\d+', value)))
 
 
-@lru_cache(maxsize=12)
+@lru_cache(maxsize=20)
 def atlas_data(base):
     path = ASSET_DIR / 'original' / (base + '.plist')
     if not path.is_file():
@@ -55,7 +66,7 @@ def atlas_data(base):
         return plistlib.load(stream)['frames']
 
 
-@lru_cache(maxsize=128)
+@lru_cache(maxsize=256)
 def atlas_frame(base, name):
     """Undo packed rotation and restore the source canvas and trim offset.
 
@@ -78,7 +89,7 @@ def atlas_frame(base, name):
     return image
 
 
-@lru_cache(maxsize=256)
+@lru_cache(maxsize=512)
 def sprite_image(base, name, size=40, flash=False, flip=False):
     frame = atlas_frame(base, name)
     if frame is None:
@@ -95,14 +106,17 @@ def sprite_image(base, name, size=40, flash=False, flip=False):
     return image
 
 
-def character_image(kind, size=40, flash=False, frame=None, flip=False):
+def character_image(kind, size=40, flash=False, frame=None, flip=False, level=1):
     if kind in TOWER_ATLASES:
         base, default = TOWER_ATLASES[kind], IDLE_FRAMES[kind]
     elif kind in WALK_FRAMES:
         base, default = MONSTER_ATLAS, WALK_FRAMES[kind][0]
     else:
         base, default = CARROT_ATLAS, CARROT_FRAMES[0]
-    return sprite_image(base, frame or default, size, flash, flip)
+    name = frame or default
+    if kind in TOWER_ATLASES and level > 1:
+        name = re.sub(r'1(\d)\.png$', lambda m: f'{level}{m[1]}.png', name)
+    return sprite_image(base, name, size, flash, flip)
 
 
 def fruit_image(kind, size=40, flash=False):

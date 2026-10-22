@@ -18,8 +18,8 @@ def main():
         for index, level in enumerate(C.LEVELS):
             points = tuple((col * C.TILE + C.TILE // 2, row * C.TILE + C.TILE // 2)
                            for col, row in level['path'])
-            road = road_image(points, index + 1)
-            reversed_road = road_image(tuple(reversed(points)), index + 1)
+            road = road_image(points, level['theme'])
+            reversed_road = road_image(tuple(reversed(points)), level['theme'])
             assert pygame.image.tobytes(road, 'RGBA') == pygame.image.tobytes(reversed_road, 'RGBA')
             assert len(pygame.mask.from_surface(road).connected_components()) == 1
             cells = C.path_cells(level['path'])
@@ -38,7 +38,7 @@ def main():
                         # the route interior must remain fully covered.
                         assert road.get_at((x, y)).a >= 250
             assert field_image(index).get_size() == (C.FIELD_W, C.FIELD_H)
-        print('PASS: both map routes, all turns, connected surfaces, buildable cell boundaries and direction-independent road textures')
+        print('PASS: all eight map routes, all turns, connected surfaces, buildable cell boundaries and direction-independent road textures')
     finally:
         pygame.quit()
 

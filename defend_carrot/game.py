@@ -1,4 +1,4 @@
-"""Game loop and controller for the Defend the Carrot MVP.
+"""Game loop and controller for the Defend the Carrot adventure.
 
 ``Game`` owns the entity collections, the path, the wave schedule, the coin
 economy and the HUD. Entities only call back into it for shared facts such
@@ -15,17 +15,22 @@ from typing import List, Optional
 import pygame
 
 import config as C
+import progress
 from guide import FieldGuide
 from ui import GameUI, load_font
 from scenery import field_image
 from entities import (
     Apple, Bat, Bullet, Carrot, Effect, Fruit, Golem, Melon, Monster, Orange,
     Rock, RockThrower, Slime, tile_center,
+    Star, IceStar, PoisonPin, RocketTower, Snowflake,
+    YellowFly, Starling, EliteGolem, BigBoss,
 )
 
-FRUIT_CLASSES = {"apple": Apple, "orange": Orange, "melon": Melon}
+FRUIT_CLASSES = {"apple": Apple, "orange": Orange, "melon": Melon, 'star': Star,
+                 'ice': IceStar, 'poison': PoisonPin, 'rocket': RocketTower, 'snow': Snowflake}
 MONSTER_CLASSES = {
     "slime": Slime, "bat": Bat, "golem": Golem, "thrower": RockThrower,
+    'yellow': YellowFly, 'starling': Starling, 'elite': EliteGolem, 'boss': BigBoss,
 }
 
 
@@ -39,11 +44,12 @@ class Game:
         self.small_font = load_font(15)
         self.guide = FieldGuide()
         self.ui = GameUI(self)
+        self.progress = progress.load()
         self.reset()
         self.state = "menu"
 
     # ------------------------------------------------------------ lifecycle
-    def reset(self) -> None:
+    def reset(self, level_index=0) -> None:
         self.fruits: List[Fruit] = []
         self.monsters: List[Monster] = []
         self.bullets: List[Bullet] = []
@@ -61,7 +67,10 @@ class Game:
         self.kills = 0
         self.score = 0
         self.guide_open = False
-        self._load_level(0)
+        self.level_select_open = False
+        self.inspected = None
+        self.speed_multiplier = 1
+        self._load_level(level_index)
 
     def path_px(self, seg: int, frac: float):
         return self.path[seg]
@@ -71,6 +80,8 @@ class Game:
             return
         self.level_index = index
         level = C.LEVELS[index]
+        self.coins = level['start_coins']
+        self.available_towers = level['towers']
         self.path = [tile_center(c, r) for c, r in level["path"]]
         self.path_cells = C.path_cells(level["path"])
         self.carrot_tile = level["path"][-1]
@@ -78,11 +89,14 @@ class Game:
         for name in ("fruits", "monsters", "bullets", "rocks", "effects"):
             setattr(self, name, [])
         self.selected = None
+        self.inspected = None
+        self.level_saved = False
+        self.save_error = False
         self.notice = ""
         self.notice_timer = 0.0
         self.wave_index = 0
         self._load_wave(0)
-        self.wave_timer = -2.0       # short grace before the first wave
+        self.wave_timer = -C.LEVEL_BREAK
 
     def _load_wave(self, index: int) -> None:
         waves = C.LEVELS[self.level_index]["waves"]
@@ -115,8 +129,9 @@ class Game:
 
     # ---------------------------------------------------------------- update
     def update(self, dt: float) -> None:
-        if self.state != "playing" or self.guide_open:
+        if self.state != "playing" or self.guide_open or self.level_select_open:
             return
+        dt *= self.speed_multiplier
         self.elapsed += dt
         self.notice_timer = max(0.0, self.notice_timer - dt)
         self._update_waves(dt)
@@ -147,29 +162,39 @@ class Game:
                 pending.append([kind, delay])
         self.spawn_queue = pending
 
-        if not self.spawn_queue and not self.monsters:
-            if self.wave_index + 1 < len(waves):
+        if not self.spawn_queue:
+            if self.wave_index + 1 < len(waves) and self.wave_timer >= waves[self.wave_index][-1][1] + C.WAVE_BREAK:
                 self._load_wave(self.wave_index + 1)
-                self.wave_timer = -C.WAVE_BREAK
-            else:
+            elif not self.monsters and self.wave_index + 1 >= len(waves):
                 self._advance_level()
 
     def _advance_level(self) -> None:
+        self._save_completion()
         if self.level_index + 1 < len(C.LEVELS):
             self.state = "levelclear"
+
+    def _save_completion(self):
+        if self.level_saved:
+            return
+        self.level_saved = True
+        self.progress['unlocked'] = max(self.progress['unlocked'], min(len(C.LEVELS), self.level_index + 2))
+        key = str(self.level_index)
+        self.progress['best'][key] = max(self.progress['best'].get(key, 0), int(self.carrot.hp))
+        self.save_error = not progress.save(self.progress)
+        if self.save_error:
+            self.show_notice('已通关，但进度文件暂时无法写入')
 
     def _continue(self) -> None:
         if self.state == "paused":
             self.state = "playing"
         elif self.state == "levelclear":
-            # New terrain invalidates old tower positions. Return their cost
-            # before clearing the board, preserving earned coins and score.
-            self.coins += sum(C.FRUITS[f.kind]["cost"] for f in self.fruits if f.alive)
             self._load_level(self.level_index + 1)
             self.wave_timer = -C.LEVEL_BREAK
             self.state = "playing"
-        elif self.state in ("menu", "won", "lost"):
-            self.reset()
+        elif self.state in ("won", "lost"):
+            self.reset(self.level_index)
+        elif self.state == 'menu':
+            self.reset(min(self.progress['unlocked'] - 1, len(C.LEVELS) - 1))
 
     def _reap(self) -> None:
         for name in ("fruits", "monsters", "bullets", "rocks", "effects"):
@@ -188,19 +213,63 @@ class Game:
                 and last_level and self.wave_index >= len(waves) - 1
                 and not self.spawn_queue and not self.monsters):
             self.state = "won"
+            self._save_completion()
+
+    def upgrade_tower(self):
+        tower = self.inspected
+        if self.state != 'playing' or self.guide_open or tower is None or not tower.alive:
+            return False
+        cost = tower.upgrade_cost
+        if cost is None:
+            self.show_notice('已升至三级')
+            return False
+        if self.coins < cost:
+            self.show_notice(f'升级还差 {cost - self.coins} 金币')
+            return False
+        self.coins -= cost
+        tower.upgrade()
+        return True
+
+    def sell_tower(self):
+        tower = self.inspected
+        if self.state != 'playing' or self.guide_open or tower is None or not tower.alive:
+            return False
+        self.coins += tower.sell_value
+        self.fruits.remove(tower)
+        tower.alive = False
+        self.inspected = None
+        return True
 
     # ----------------------------------------------------------------- input
     def handle_event(self, event: pygame.event.Event) -> None:
+        if self.level_select_open:
+            if event.type == pygame.KEYDOWN and event.key in (pygame.K_ESCAPE, pygame.K_l):
+                self.level_select_open = False
+            elif event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
+                for i in range(len(C.LEVELS)):
+                    if self.ui.level_rect(i).collidepoint(event.pos) and i < self.progress['unlocked']:
+                        self.reset(i)
+                        break
+            return
         if event.type == pygame.KEYDOWN and event.key == pygame.K_i:
             self.guide_open = not self.guide_open
             return
         if self.guide_open:
-            if (event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE
+            if event.type == pygame.KEYDOWN and event.key == pygame.K_TAB:
+                self.guide.tab = 'monsters' if self.guide.tab == 'towers' else 'towers'
+            elif event.type == pygame.MOUSEBUTTONDOWN and event.button == 1 and self.guide.towers_rect.collidepoint(event.pos):
+                self.guide.tab = 'towers'
+            elif event.type == pygame.MOUSEBUTTONDOWN and event.button == 1 and self.guide.monsters_rect.collidepoint(event.pos):
+                self.guide.tab = 'monsters'
+            elif (event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE
                     or event.type == pygame.MOUSEBUTTONDOWN and event.button == 1
                     and self.guide.close_rect.collidepoint(event.pos)):
                 self.guide_open = False
             return
         if event.type == pygame.KEYDOWN:
+            if event.key == pygame.K_l and self.state == 'menu':
+                self.level_select_open = True
+                return
             if event.key == pygame.K_ESCAPE:
                 if self.state == "menu":
                     pygame.quit()
@@ -215,20 +284,32 @@ class Game:
                 self._continue()
                 return
             if event.key == pygame.K_r and self.state in ("won", "lost"):
-                self.reset()
+                self.reset(self.level_index)
                 return
             if self.state != "playing":
                 return
-            if event.key in (pygame.K_1, pygame.K_2, pygame.K_3):
+            if event.key == pygame.K_u:
+                self.upgrade_tower()
+            elif event.key == pygame.K_DELETE:
+                self.sell_tower()
+            elif event.key == pygame.K_TAB:
+                self.speed_multiplier = 3 - self.speed_multiplier
+            elif pygame.K_1 <= event.key <= pygame.K_8:
                 idx = event.key - pygame.K_1
                 if idx < len(C.SHOP_ORDER):
-                    self.selected = C.SHOP_ORDER[idx]
+                    kind = C.SHOP_ORDER[idx]
+                    if kind in self.available_towers:
+                        self.selected, self.inspected = kind, None
+                    else:
+                        self.show_notice(f'第{C.FRUITS[kind]["unlock"]}关开放此塔')
         if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
             if self.guide.button_rect.collidepoint(event.pos):
                 self.guide_open = True
                 return
             if self.state != "playing":
-                if self.ui.primary_rect.collidepoint(event.pos):
+                if self.state == 'menu' and self.ui.level_button_rect.collidepoint(event.pos):
+                    self.level_select_open = True
+                elif self.ui.primary_rect.collidepoint(event.pos):
                     self._continue()
                 elif self.ui.secondary_rect.collidepoint(event.pos):
                     if self.state == "menu":
@@ -238,6 +319,15 @@ class Game:
                 return
             if self.ui.pause_rect.collidepoint(event.pos):
                 self.state = "paused"
+                return
+            if self.ui.speed_rect.collidepoint(event.pos):
+                self.speed_multiplier = 3 - self.speed_multiplier
+                return
+            if self.ui.upgrade_rect.collidepoint(event.pos):
+                self.upgrade_tower()
+                return
+            if self.ui.sell_rect.collidepoint(event.pos):
+                self.sell_tower()
                 return
             self._on_click(event.pos)
         if (event.type == pygame.MOUSEBUTTONDOWN and event.button == 3
@@ -249,11 +339,15 @@ class Game:
             return
         for i, kind in enumerate(C.SHOP_ORDER):
             if self._card_rect(i).collidepoint(pos):
-                self.selected = kind
+                if kind in self.available_towers:
+                    self.selected, self.inspected = kind, None
+                else:
+                    self.show_notice(f'第{C.FRUITS[kind]["unlock"]}关开放此塔')
                 return
-        if self.selected is None:
-            return
         cell = self.field_cell(pos)
+        if self.selected is None:
+            self.inspected = self.fruit_at(*cell) if cell else None
+            return
         reason = self.building_error(cell)
         if reason:
             self.show_notice(reason)
@@ -277,6 +371,8 @@ class Game:
             return "请在草地区域建造"
         if self.selected not in C.FRUITS:
             return "请先选择下方的防御塔卡片"
+        if self.selected not in self.available_towers:
+            return "本关尚未开放该防御塔"
         if cell == self.carrot_tile:
             return "这里是萝卜的位置，不能建造"
         if cell in self.path_cells:
@@ -308,18 +404,19 @@ class Game:
         if self.state != "playing":
             self.ui.draw_overlay()
         else:
-            self.ui.button(self.ui.pause_rect, "暂停防守  [P]")
+            self.ui.button(self.ui.pause_rect, "暂停 [P]")
         self.guide.draw_button(self.screen)
         if self.guide_open:
             self.guide.draw(self.screen)
+        if self.level_select_open:
+            self.ui.draw_level_select()
         pygame.display.flip()
 
     def _draw_field(self) -> None:
         self.screen.blit(field_image(self.level_index), (0, C.HUD_H))
 
     def _card_rect(self, index: int) -> pygame.Rect:
-        x = 12 + index * 150
-        return pygame.Rect(x, C.SCREEN_H - C.SHOP_H + 36, 140, C.SHOP_H - 46)
+        return pygame.Rect(12 + index % 4 * 124, C.SCREEN_H - C.SHOP_H + 36 + index // 4 * 64, 116, 58)
 
     def _draw_shop(self) -> None:
         self.ui.draw_shop()

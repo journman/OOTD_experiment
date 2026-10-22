@@ -42,10 +42,19 @@ is required; the GIF under docs/screenshots is a preview of actual gameplay.
   icons, previews and health bar positions are adjusted. Collision sizes,
   occupied cells and targeting ranges remain unchanged.
 
+## Eight-stage expansion (2026-10-22)
+
+Five additional original tower atlases (Star, BlueStar, Pin, Rocket, Snow) provide
+all three upgrade tiers and animation poses. Desert backdrop and road textures
+provide the third theme. Files are copied unchanged; pinned source paths and Git
+blob hashes are recorded in `original/expansion-manifest.json`. All eight monster
+types already have two original poses in the imported Monsters01 atlas.
+
 The course's legacy class/registry IDs remain `Apple/apple`, `Orange/orange`,
-`Melon/melon`; they display bottle, fan and sun graphics respectively. This change
-does not implement the original commercial game's tower skills: existing costs,
-projectile damage, area damage, ranges, rewards and wave composition are retained.
+`Melon/melon`; they display bottle, fan and sun graphics respectively. Original
+tower roles are now implemented, including fan piercing and sun area attacks.
+See `defend_carrot/EXPANSION.md` for the original in-game help reference, authored
+stage schedules, three-life balance and persistence behavior.
 
 ## Previous generated artwork (retained, no longer displayed)
 

@@ -25,8 +25,9 @@ def main():
     game = Game()
     try:
         root = ASSET_DIR / 'original'
-        manifest = json.loads((root / 'source-manifest.json').read_text())
-        for entry in manifest['files']:
+        entries = [entry for name in ('source-manifest.json', 'expansion-manifest.json')
+                   for entry in json.loads((root / name).read_text())['files']]
+        for entry in entries:
             data = (root / entry['local']).read_bytes()
             digest = hashlib.sha1(b'blob ' + str(len(data)).encode() + b'\0' + data).hexdigest()
             assert digest == entry['sha'], entry['local']
@@ -71,11 +72,14 @@ def main():
             tower.timer = 0
             game.bullets = []
             tower.update(.01, game)
-            assert len(game.bullets) == 1 and tower._attacking
+            count = 0 if kind == 'melon' else 1
+            assert len(game.bullets) == count and tower._attacking
+            if kind == 'melon':
+                assert target.hp == target.max_hp - tower.damage
             start = tower.attack_animation.frame
             tower.update(.09, game)
             assert tower.attack_animation.frame != start
-            assert len(game.bullets) == 1  # animation must not generate extra damage
+            assert len(game.bullets) == count  # animation must not generate extra damage
             tower.update(.4, game)
             assert not tower._attacking
             game.fruits = [tower]

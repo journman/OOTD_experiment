@@ -49,7 +49,8 @@ def road_image(points, theme):
 
     layer = pygame.Surface(size, pygame.SRCALPHA)
     palette = (((58, 143, 182), (99, 192, 226), (159, 224, 245), (206, 244, 255)),
-               ((73, 122, 18), (126, 172, 20), (172, 208, 39), (153, 128, 13)))
+               ((73, 122, 18), (126, 172, 20), (172, 208, 39), (153, 128, 13)),
+               ((148, 83, 37), (191, 132, 64), (242, 194, 111), (221, 168, 82)))
     for width, color in zip((C.TILE + 9, C.TILE + 7, C.TILE + 3, C.TILE), palette[theme - 1]):
         stroke(layer, color, width)
 
@@ -60,7 +61,8 @@ def road_image(points, theme):
         # Take only the road interior; the old tile's grass/cloud borders must
         # never appear as rectangular seams at a turn. Mirrored tiles join at
         # matching edge pixels, with one texture origin for the whole road.
-        area = (180, 260, 80, 36) if theme == 1 else (100, 25, 100, 48)
+        area = ((180, 260, 80, 36) if theme == 1 else
+                (100, 25, 100, 48) if theme == 2 else (108, 84, 42, 42))
         tile = pygame.transform.smoothscale(atlas.subsurface(area), (40, 20))
         variants = {(x, y): pygame.transform.flip(tile, bool(x), bool(y))
                     for x in (0, 1) for y in (0, 1)}
@@ -75,11 +77,11 @@ def road_image(points, theme):
     return pygame.transform.smoothscale(layer, (C.FIELD_W, C.FIELD_H))
 
 
-@lru_cache(maxsize=2)
+@lru_cache(maxsize=8)
 def field_image(index):
     level = C.LEVELS[index]
     image = pygame.Surface((C.FIELD_W, C.FIELD_H))
-    theme = index + 1
+    theme = level['theme']
     terrain = atlas_frame(f'Themes/Theme{theme}/BG0/BG1-hd', 'BG1.png')
     if terrain is not None:
         image.blit(pygame.transform.smoothscale(terrain, image.get_size()), (0, 0))
@@ -88,7 +90,7 @@ def field_image(index):
     points = [(col * C.TILE + C.TILE // 2, row * C.TILE + C.TILE // 2)
               for col, row in level['path']]
     road = load_image(f'original/Themes/Theme{theme}/BG1/BG-hd.png')
-    if road is not None and index == 0:
+    if road is not None and theme == 1:
         # Only scenery is copied from the old map; its baked route is never
         # displayed beneath our different, interactive route.
         decorations = ((0, 330, 310, 152), (705, 330, 255, 152))

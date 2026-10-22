@@ -13,7 +13,7 @@
 
 - Source mirror: [JezaChen/CarrotGuardGame](https://github.com/JezaChen/CarrotGuardGame/tree/478f66092f994b95408fa130e8b0418af4f9828f/Resources/Themes), a third-party cocos2d-x recreation.
 - Pinned revision: `478f66092f994b95408fa130e8b0418af4f9828f`.
-- Imported PNG/plist files: `defend_carrot/assets/original/`. Source paths and Git blob hashes are listed in `source-manifest.json`; files are retained unchanged and decoded at runtime.
+- Imported PNG/plist files: `defend_carrot/assets/original/`. Source paths and Git blob hashes are listed in `source-manifest.json` and `expansion-manifest.json`; files are retained unchanged and decoded at runtime. The expansion adds Star, BlueStar, Pin, Rocket and Snow tower atlases plus the desert scene.
 - These are original-game graphics preserved by that mirror, not graphics supplied by an official publisher asset service. The mirror does not establish a separate license to the commercial game's artwork.
 - Carrot Fantasy characters, names and original graphics remain the property of their respective rights holders. This educational project claims no ownership and grants no additional rights to these assets.
 - The older generated artwork is retained for project history but is no longer displayed by the game.

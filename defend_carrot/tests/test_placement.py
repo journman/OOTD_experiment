@@ -52,7 +52,7 @@ def main():
             g.ui.draw_placement(tile_center(*cell))
             g.update(3)
             assert g.notice_timer == 0
-        print('PASS: two-map previews, field bounds, path/goal/occupancy/coins feedback and purchase consistency')
+        print('PASS: eight-map previews, field bounds, path/goal/occupancy/coins feedback and purchase consistency')
     finally:
         pygame.quit()
 

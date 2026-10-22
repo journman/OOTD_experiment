@@ -35,9 +35,13 @@ def panel_background(size, dark=False):
 
 
 class GameUI:
-    primary_rect = pygame.Rect(245, 375, 310, 52)
-    secondary_rect = pygame.Rect(245, 445, 310, 47)
-    pause_rect = pygame.Rect(485, C.SCREEN_H - 80, 295, 32)
+    primary_rect = pygame.Rect(245, 365, 310, 48)
+    secondary_rect = pygame.Rect(245, 425, 310, 42)
+    level_button_rect = pygame.Rect(245, 480, 310, 40)
+    pause_rect = pygame.Rect(520, C.HUD_H + C.FIELD_H + 4, 120, 28)
+    speed_rect = pygame.Rect(650, C.HUD_H + C.FIELD_H + 40, 130, 28)
+    upgrade_rect = pygame.Rect(520, C.HUD_H + C.FIELD_H + 128, 125, 32)
+    sell_rect = pygame.Rect(655, C.HUD_H + C.FIELD_H + 128, 125, 32)
 
     def __init__(self, game):
         self.game = game
@@ -52,30 +56,42 @@ class GameUI:
         hovered = rect.collidepoint(pygame.mouse.get_pos())
         pygame.draw.rect(screen, (89, 132, 70) if hovered else (63, 102, 55), rect, border_radius=10)
         pygame.draw.rect(screen, (191, 187, 122), rect, 2, border_radius=10)
-        self.text(label, rect.center, 22)
+        self.text(label, rect.center, 15 if rect.h < 40 else 22)
 
     def draw_shop(self):
         g = self.game
-        g.screen.blit(panel_background((C.SCREEN_W, C.SHOP_H)), (0, C.SCREEN_H - C.SHOP_H))
+        base = C.SCREEN_H - C.SHOP_H
+        g.screen.blit(panel_background((C.SCREEN_W, C.SHOP_H)), (0, base))
         for i, kind in enumerate(C.SHOP_ORDER):
             spec, rect = C.FRUITS[kind], g._card_rect(i)
-            affordable, selected = g.coins >= C.FRUITS[kind]['cost'], g.selected == kind
-            pygame.draw.rect(g.screen, (172, 154, 109), rect.move(0, 3), border_radius=10)
-            color = (255, 245, 190) if selected else (255, 251, 233) if affordable else (224, 221, 203)
-            pygame.draw.rect(g.screen, color, rect, border_radius=10)
-            pygame.draw.rect(g.screen, (201, 150, 51) if selected else (162, 157, 113),
-                             rect, 3 if selected else 1, border_radius=10)
-            sprite = fruit_image(kind, 56)
+            opened = kind in g.available_towers
+            selected = g.selected == kind
+            affordable = opened and g.coins >= spec['cost']
+            color = (255, 243, 184) if selected else (255, 251, 232) if affordable else (218, 218, 201)
+            pygame.draw.rect(g.screen, color, rect, border_radius=8)
+            pygame.draw.rect(g.screen, (195, 145, 46) if selected else (153, 155, 109), rect, 2, border_radius=8)
+            sprite = fruit_image(kind, 46)
             if not affordable:
                 sprite = pygame.transform.grayscale(sprite)
-            g.screen.blit(sprite, sprite.get_rect(center=(rect.x + 27, rect.y + 37)))
-            pygame.draw.circle(g.screen, (66, 100, 57), (rect.x + 12, rect.y + 12), 9)
-            self.text(str(i + 1), (rect.x + 12, rect.y + 12), 13)
-            for text, y, ink in ((spec['label'], 13, (47, 69, 39)),
-                                 (f"{spec['cost']} 金币", 34, (146, 96, 24)),
-                                 (f"伤害 {spec['damage']}", 54, (101, 108, 75))):
-                image = self.fonts[15].render(text, True, ink)
-                g.screen.blit(image, (rect.x + 53, rect.y + y - 10))
+            g.screen.blit(sprite, sprite.get_rect(center=(rect.x + 23, rect.y + 30)))
+            for value, y in ((spec['label'], 3),
+                             (f"{spec['cost']}金币" if opened else f"第{spec['unlock']}关开放", 22),
+                             (spec['role'], 39)):
+                text = self.fonts[13].render(value, True, (44, 70, 40) if opened else (111, 114, 98))
+                g.screen.blit(text, (rect.x + 45, rect.y + y))
+            self.text(str(i + 1), (rect.x + 8, rect.y + 8), 13, (74, 104, 51))
+        self.button(self.speed_rect, f'速度 {g.speed_multiplier}倍 [Tab]')
+        tower = g.inspected if g.inspected and g.inspected.alive else None
+        if tower:
+            self.text(f'{tower.label}  {tower.level}级', (580, base + 54), 15, (44, 70, 40))
+            self.text(f'伤害{tower.damage:g}  射程{tower.rng / C.TILE:.1f}格', (650, base + 87), 15, (64, 80, 46))
+            self.text(f'每{tower.interval:.2f}秒攻击', (650, base + 109), 13, (94, 103, 65))
+            self.button(self.upgrade_rect, f'升级 {tower.upgrade_cost} [U]' if tower.upgrade_cost else '已满三级')
+            self.button(self.sell_rect, f'出售 {tower.sell_value}')
+        else:
+            self.text(f'本关开放 {len(g.available_towers)} / 8 种塔', (580, base + 54), 13, (44, 70, 40))
+            self.text('点击场上防御塔，可升级或出售', (650, base + 99), 15, (64, 80, 46))
+            self.text(C.LEVELS[g.level_index]['hint'], (650, base + 132), 15, (120, 95, 37))
 
     def draw_hud(self):
         g = self.game
@@ -110,19 +126,19 @@ class GameUI:
     def draw_placement(self, pos=None):
         g = self.game
         cell = g.field_cell(pygame.mouse.get_pos() if pos is None else pos)
-        if cell is None:
+        tower = g.inspected if g.inspected and g.inspected.alive else (g.fruit_at(*cell) if cell else None)
+        if g.selected and cell is None or not g.selected and tower is None:
             return
+        if not g.selected:
+            cell = tower.col, tower.row
         col, row = cell
-        tower = g.fruit_at(col, row)
-        if g.selected is None and tower is None:
-            return
-        kind = g.selected if g.selected else tower.kind
+        kind = g.selected or tower.kind
         valid = not g.building_error(cell) if g.selected else True
         color = (127, 235, 149) if valid else (255, 121, 101)
         x, y = tile_center(col, row)
         y -= C.HUD_H
         overlay = pygame.Surface((C.FIELD_W, C.FIELD_H), pygame.SRCALPHA)
-        radius = round(C.FRUITS[kind]['rng'] * C.TILE)
+        radius = round(C.FRUITS[kind]['rng'] * C.TILE if g.selected else tower.rng)
         pygame.draw.circle(overlay, (*color, 32), (x, y), radius)
         pygame.draw.circle(overlay, (*color, 170), (x, y), radius, 2)
         rect = pygame.Rect(col * C.TILE, row * C.TILE, C.TILE, C.TILE)
@@ -145,12 +161,12 @@ class GameUI:
         elif g.wave_timer < 0:
             message = f"下一波还有 {math.ceil(-g.wave_timer)} 秒 · 提前布置防线"
         else:
-            message = '点击卡片选塔 · 鼠标停在防御塔上查看射程'
+            message = f"{C.LEVELS[g.level_index]['wave_labels'][g.wave_index]} · 场上 {len(g.monsters)} 只 · 点击炮塔升级"
         # The last map row remains unobstructed; feedback sits above the cards.
-        panel = pygame.Surface((780, 25), pygame.SRCALPHA)
+        panel = pygame.Surface((500, 25), pygame.SRCALPHA)
         panel.fill((44, 68, 45, 230))
         g.screen.blit(panel, (10, C.SCREEN_H - C.SHOP_H + 4))
-        self.text(message, (400, C.SCREEN_H - C.SHOP_H + 16), 15,
+        self.text(message, (260, C.SCREEN_H - C.SHOP_H + 16), 13,
                   (255, 218, 145) if g.notice_timer > 0 else (235, 244, 211))
 
     def draw_overlay(self):
@@ -166,25 +182,49 @@ class GameUI:
             sprite = fruit_image(kind, 28)
             g.screen.blit(sprite, sprite.get_rect(center=(367 + i * 33, 138)))
         titles = {'menu': C.TITLE, 'paused': '休息一下，防线已暂停',
-                  'levelclear': '云径守住了！', 'won': '两关通关，守护成功！', 'lost': '萝卜失守了'}
+                  'levelclear': '本关守住了！', 'won': '八关通关，守护成功！', 'lost': '萝卜失守了'}
         self.text(titles[g.state], (400, 181), 38, (43, 77, 44))
         if g.state == 'menu':
-            lines = ('两张地图 · 三种防御塔 · 四类来袭怪物',
-                     '1–3 或点击卡片选塔，左键建造，右键取消',
+            lines = ('八张地图 · 八种炮塔 · 三大主题',
+                     '1–8 选塔；点击场上炮塔升级或出售',
                      '萝卜只有 3 血，每漏过一只怪物扣 1 血',
-                     'I 查看图鉴，P 暂停；Esc 暂停或返回菜单')
-            primary, secondary = '开始挑战  [Enter]', '防御塔与怪物图鉴  [I]'
+                     '关卡逐步解锁，通关进度自动保存在本地')
+            primary, secondary = f"继续第{g.progress['unlocked']}关 [Enter]", '防御塔与怪物图鉴  [I]'
+            self.button(self.level_button_rect, '选择关卡 / 重玩 [L]')
         else:
             lines = (C.LEVELS[g.level_index]['name'],
                      f'累计积分 {g.score}    击杀 {g.kills}    金币 {g.coins}',
                      f'萝卜生命 {max(0, g.carrot.hp):g}/{C.CARROT_HP}    用时 {g.elapsed:.1f} 秒',
-                     '下一关回收存活防御塔原价，萝卜恢复生命' if g.state == 'levelclear'
+                     '下一关使用独立开局金币，萝卜恢复3血' if g.state == 'levelclear'
                      else '查看图鉴不会改变挑战进度')
             primary = ('继续防守  [P / Enter]' if g.state == 'paused' else
-                       '前往第二关  [Enter]' if g.state == 'levelclear' else '重新挑战  [R / Enter]')
+                       f'前往第{g.level_index + 2}关 [Enter]' if g.state == 'levelclear' else '重新挑战  [R / Enter]')
             secondary = '结束本次挑战，返回菜单' if g.state == 'paused' else '返回主菜单  [Esc]'
         for i, line in enumerate(lines):
             self.text(line, (400, 235 + i * 31), 18, (67, 84, 55))
         self.button(self.primary_rect, primary)
         self.button(self.secondary_rect, secondary)
-        self.text('主菜单按 Esc 退出游戏', (400, 526), 15, (105, 112, 77))
+        footnote = ('通关进度暂未写入，请检查存档目录权限' if g.save_error and g.state in ('levelclear', 'won')
+                    else '主菜单按 Esc 退出游戏')
+        self.text(footnote, (400, 539), 15, (105, 112, 77))
+
+    @staticmethod
+    def level_rect(index):
+        return pygame.Rect(25 + index % 4 * 190, 200 + index // 4 * 165, 175, 140)
+
+    def draw_level_select(self):
+        g = self.game
+        g.screen.fill((232, 231, 199))
+        self.text('冒险地图 · 天际 / 丛林 / 沙漠', (400, 85), 22, (49, 86, 49))
+        self.text('通关开放下一关；金色标记代表满血通关', (400, 131), 18, (90, 104, 62))
+        for i, level in enumerate(C.LEVELS):
+            rect = self.level_rect(i)
+            opened = i < g.progress['unlocked']
+            pygame.draw.rect(g.screen, (255, 247, 209) if opened else (186, 192, 169), rect, border_radius=14)
+            pygame.draw.rect(g.screen, (169, 139, 52) if g.progress['best'].get(str(i)) == 3 else (112, 143, 84), rect, 2, border_radius=14)
+            self.text(level['name'].split(' · ')[-1], (rect.centerx, rect.y + 30), 18, (50, 80, 44))
+            self.text(f"{len(level['waves'])}波 · {len(level['towers'])}种塔", (rect.centerx, rect.y + 65), 15, (85, 97, 57))
+            best = g.progress['best'].get(str(i))
+            label = f'最佳剩余 {best}/3 血' if best else f"开局 {level['start_coins']} 金币" if opened else '通关前一关解锁'
+            self.text(label, (rect.centerx, rect.y + 99), 13, (127, 103, 38))
+        self.text('点击已开放的关卡出发；Esc / L 返回主菜单', (400, 600), 18, (69, 95, 52))

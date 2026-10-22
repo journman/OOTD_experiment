@@ -64,7 +64,7 @@ def main():
             assert game.state == 'lost', (level, game.state)
             assert game.carrot.hp == 0 and game.kills == game.score == 0
             assert game.level_index == level
-        print('PASS: all monster types consume one life, third leak loses, damage sprites persist, idle play loses both maps')
+        print('PASS: all monster types consume one life, third leak loses, damage sprites persist, idle play loses all eight maps')
     finally:
         pygame.quit()
 
