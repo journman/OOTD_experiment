@@ -23,12 +23,17 @@ def self_test(report_path: str) -> int:
         import pygame
         import config as C
         from game import Game
-        from art import CHARACTERS, character_image, load_image
+        from art import (CHARACTERS, WALK_FRAMES, ATTACK_FRAMES,
+                         character_image, atlas_frame)
         game = Game()
-        for name in ('character-atlas.png', 'garden-ground.png', 'forest-ground.png'):
-            assert load_image(name) is not None, name
         for kind in CHARACTERS:
             assert character_image(kind) is not None, kind
+        for kind, frames in {**WALK_FRAMES, **ATTACK_FRAMES}.items():
+            for frame in frames:
+                assert character_image(kind, frame=frame) is not None, (kind, frame)
+        for theme in (1, 2):
+            assert atlas_frame(f'Themes/Theme{theme}/BG0/BG1-hd', 'BG1.png') is not None
+            assert atlas_frame(f'Themes/Theme{theme}/BG1/BG-hd', 'Path.png') is not None
         assert game.state == "menu"
         game.draw()
         game.handle_event(pygame.event.Event(pygame.KEYDOWN, key=pygame.K_RETURN))

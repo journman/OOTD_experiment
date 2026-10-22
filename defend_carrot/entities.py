@@ -31,7 +31,9 @@ from typing import List, Optional, TYPE_CHECKING
 import pygame
 
 import config as C
-from art import fruit_image, character_image
+from art import (fruit_image, character_image, sprite_image, TOWER_ATLASES,
+                 ATTACK_FRAMES, WALK_FRAMES, CARROT_FRAMES)
+from animation import Animation
 
 if TYPE_CHECKING:
     from game import Game
@@ -76,6 +78,9 @@ class Fruit(Entity):
         self.label = self.spec["label"]
         self.timer = 0.3
         self._hit_flash = 0.0
+        self.attack_animation = Animation(ATTACK_FRAMES[kind], .08, loop=False)
+        self._attacking = False
+        self.aim_angle = 0.0
 
     def take_damage(self, amount: float) -> None:
         self.hp -= amount
@@ -85,13 +90,20 @@ class Fruit(Entity):
 
     def update(self, dt: float, game: "Game") -> None:
         self._hit_flash = max(0.0, self._hit_flash - dt)
+        if self._attacking:
+            self.attack_animation.update(dt)
+            if self.attack_animation.finished:
+                self._attacking = False
         target = self.acquire(game)
         if target is None:
             return
+        self.aim_angle = math.degrees(math.atan2(self.y - target.y, target.x - self.x)) - 90
         self.timer -= dt
         if self.timer <= 0:
             self.timer = self.interval
             self.fire(target, game)
+            self.attack_animation.restart()
+            self._attacking = True
 
     def acquire(self, game: "Game") -> Optional["Monster"]:
         """Closest monster inside range that is not already past the carrot."""
@@ -110,8 +122,17 @@ class Fruit(Entity):
 
     def draw(self, surface: pygame.Surface) -> None:
         cx, cy = int(self.x), int(self.y)
-        sprite = fruit_image(self.kind, flash=self._hit_flash > 0)
+        frame = self.attack_animation.frame if self._attacking and self.kind != 'melon' else None
+        sprite = character_image(self.kind, 48, self._hit_flash > 0, frame=frame)
+        if sprite is None:
+            sprite = fruit_image(self.kind, 48, self._hit_flash > 0)
+        elif self.kind != 'melon':
+            sprite = pygame.transform.rotate(sprite, self.aim_angle)
         surface.blit(sprite, sprite.get_rect(center=(cx, cy)))
+        if self.kind == 'melon' and self._attacking:
+            halo = character_image(self.kind, 84, frame=self.attack_animation.frame)
+            if halo is not None:
+                surface.blit(halo, halo.get_rect(center=(cx, cy)))
         if self.hp < self.max_hp:
             w = 30
             x, y = cx - w // 2, cy - 24
@@ -126,7 +147,7 @@ class Apple(Fruit):
 
     def fire(self, target, game):
         game.bullets.append(Bullet(self.x, self.y, target, self.damage,
-                                   (255, 210, 210)))
+                                   (255, 210, 210), kind=self.kind))
 
 
 class Orange(Fruit):
@@ -135,7 +156,7 @@ class Orange(Fruit):
 
     def fire(self, target, game):
         game.bullets.append(Bullet(self.x, self.y, target, self.damage,
-                                   (255, 230, 170)))
+                                   (255, 230, 170), kind=self.kind))
 
 
 class Melon(Fruit):
@@ -148,7 +169,7 @@ class Melon(Fruit):
 
     def fire(self, target, game):
         game.bullets.append(Bullet(self.x, self.y, target, self.damage,
-                                   (200, 255, 200), splash=self.SPLASH))
+                                   (200, 255, 200), splash=self.SPLASH, kind=self.kind))
 
 
 # ------------------------------------------------------------------ monsters
@@ -172,6 +193,8 @@ class Monster(Entity):
         self._hit_flash = 0.0
         self.target_fruit: Optional[Fruit] = None
         self.throw_timer = float(spec.get("throw_interval", 0.0))
+        self.walk_animation = Animation(WALK_FRAMES[kind])
+        self.facing_left = False
         # Start just off the left edge of the field.
         sx, sy = game.path_px(0, 0.0)
         super().__init__(sx, sy)
@@ -194,6 +217,7 @@ class Monster(Entity):
 
     def update(self, dt: float, game: "Game") -> None:
         self._hit_flash = max(0.0, self._hit_flash - dt)
+        self.walk_animation.update(dt)
 
         if self.target_fruit is not None and not self.target_fruit.alive:
             self.target_fruit = None
@@ -215,6 +239,8 @@ class Monster(Entity):
         while dist > 0 and self.seg < len(game.path) - 1:
             nx, ny = game.path[self.seg + 1]
             dx, dy = nx - self.x, ny - self.y
+            if abs(dx) > .001:
+                self.facing_left = dx < 0
             seg_len = math.hypot(dx, dy)
             if seg_len <= dist:
                 self.x, self.y = nx, ny
@@ -231,8 +257,9 @@ class Monster(Entity):
 
     def draw(self, surface: pygame.Surface) -> None:
         cx, cy = int(self.x), int(self.y)
-        sprite = character_image(self.kind, 44 if self.kind in ('bat', 'golem') else 38,
-                                 flash=self._hit_flash > 0)
+        sprite = character_image(self.kind, 56 if self.kind == 'golem' else 48,
+                                 flash=self._hit_flash > 0,
+                                 frame=self.walk_animation.frame, flip=self.facing_left)
         if sprite is not None:
             surface.blit(sprite, sprite.get_rect(center=(cx, cy)))
         else:
@@ -307,18 +334,23 @@ class Bullet(Entity):
     """Homing projectile; keeps its target reference so it always connects."""
 
     def __init__(self, x, y, target: Monster, damage: float, color,
-                 splash: float = 0.0) -> None:
+                 splash: float = 0.0, kind=None) -> None:
         super().__init__(x, y)
         self.target = target
         self.damage = damage
         self.color = color
         self.splash = splash
+        self.kind = kind
+        self.angle = 0.0
+        self.elapsed = 0.0
 
     def update(self, dt: float, game: "Game") -> None:
+        self.elapsed += dt
         if not self.target.alive:
             self.alive = False
             return
         dx, dy = self.target.x - self.x, self.target.y - self.y
+        self.angle = math.degrees(math.atan2(-dy, dx)) - 90
         d = math.hypot(dx, dy)
         step = C.BULLET_SPEED * dt
         if d <= step + C.MONSTER_HIT_RADIUS:
@@ -338,6 +370,13 @@ class Bullet(Entity):
                 m.take_damage(self.damage)
 
     def draw(self, surface: pygame.Surface) -> None:
+        frames = {'apple': 'PBottle11.png', 'orange': 'PFan11.png', 'melon': 'PSun01.png'}
+        if self.kind in frames:
+            image = sprite_image(TOWER_ATLASES[self.kind], frames[self.kind], 20)
+            if image is not None:
+                image = pygame.transform.rotate(image, self.elapsed * 720 if self.kind == 'orange' else self.angle)
+                surface.blit(image, image.get_rect(center=(int(self.x), int(self.y))))
+                return
         pygame.draw.circle(surface, self.color, (int(self.x), int(self.y)), 6)
 
 
@@ -377,18 +416,31 @@ class Carrot(Entity):
         super().__init__(cx, cy)
         self.hp = C.CARROT_HP
         self.max_hp = C.CARROT_HP
+        self.expression = Animation(CARROT_FRAMES, .12, loop=False)
+        self.expression_timer = 0.0
+        self.expressing = False
 
     def take_damage(self, amount: float) -> None:
         self.hp -= amount
+        self.expression.restart()
+        self.expressing = True
         if self.hp <= 0:
             self.alive = False
 
     def update(self, dt: float, game: "Game") -> None:
-        ...
+        self.expression_timer += dt
+        if self.expressing:
+            self.expression.update(dt)
+            self.expressing = not self.expression.finished
+        elif self.expression_timer >= 4.0:
+            self.expression_timer %= 4.0
+            self.expression.restart()
+            self.expressing = True
 
     def draw(self, surface: pygame.Surface) -> None:
         cx, cy = int(self.x), int(self.y)
-        sprite = character_image('carrot', 54)
+        sprite = character_image('carrot', 74,
+                                 frame=self.expression.frame if self.expressing else None)
         if sprite is not None:
             surface.blit(sprite, sprite.get_rect(center=(cx, cy - 7)))
             return

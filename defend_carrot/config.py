@@ -18,7 +18,7 @@ FIELD_W = SCREEN_W
 FIELD_H = GRID_ROWS * TILE             # 520
 SCREEN_H = HUD_H + FIELD_H + SHOP_H    # 692
 FPS = 60
-TITLE = "保卫萝卜 · 水果防线"
+TITLE = "保卫萝卜 · 经典防线"
 
 # ---------------------------------------------------------------- colors
 COL_GRASS = (126, 176, 96)
@@ -39,16 +39,18 @@ START_COINS = 220
 PASSIVE_INCOME = 25        # coins granted at the start of every wave
 
 # --------------------------------------------------------- fruit registry
-# Fruits are the defenders ("towers"). Each carries its own hit points so a
+# Legacy fruit IDs remain stable for the course's object model and saved tools.
+# The displayed towers use original-game art; combat values stay unchanged.
+# Each carries its own hit points so a
 # ranged monster can knock it down; the intro table in the report reads
 # straight off these values.
 FRUITS = {
     "apple": dict(cost=100, hp=120, damage=22, interval=1.0, rng=2.6,
-                  color=(214, 62, 62), label="苹果"),
+                  color=(214, 62, 62), label="瓶子炮"),
     "orange": dict(cost=70, hp=90, damage=12, interval=0.55, rng=2.1,
-                   color=(240, 150, 40), label="橙子"),
+                   color=(240, 150, 40), label="风扇"),
     "melon": dict(cost=180, hp=170, damage=48, interval=1.7, rng=3.2,
-                  color=(70, 170, 90), label="西瓜"),
+                  color=(70, 170, 90), label="太阳花"),
 }
 SHOP_ORDER = ["orange", "apple", "melon"]
 
@@ -56,11 +58,11 @@ SHOP_ORDER = ["orange", "apple", "melon"]
 # speed is measured in tiles per second, so it reads the same on any map.
 MONSTERS = {
     "slime": dict(hp=60, speed=1.7, reward=12, bite=1, color=(120, 200, 120),
-                  label="史莱姆"),
+                  label="粉红怪"),
     "bat": dict(hp=45, speed=2.7, reward=15, bite=1, color=(150, 130, 200),
-                label="蝙蝠"),
+                label="蓝飞怪"),
     "golem": dict(hp=240, speed=1.0, reward=35, bite=3, color=(150, 140, 120),
-                  label="石巨人"),
+                  label="绿皮怪"),
     "thrower": dict(hp=110, speed=1.3, reward=28, bite=2, color=(190, 120, 90),
                     label="投石怪", throw_interval=3.0, throw_damage=24,
                     throw_range=3.2),
@@ -98,7 +100,7 @@ PATH_CELLS = path_cells(PATH)
 # list of (monster_kind, delay_seconds) measured from the wave start.
 LEVELS = [
     dict(
-        name="第一关 · 花园小径",
+        name="第一关 · 天空云径",
         path=PATH,
         grass=((126, 176, 96), (112, 162, 84)),
         waves=[
@@ -107,7 +109,7 @@ LEVELS = [
         ],
     ),
     dict(
-        name="第二关 · 林间转角",
+        name="第二关 · 丛林转角",
         path=[(3, -1), (3, 3), (16, 3), (16, 8), (5, 8), (5, 11), (18, 11)],
         grass=((78, 128, 102), (67, 114, 90)),
         waves=[

@@ -120,6 +120,9 @@ class Game:
         self.elapsed += dt
         self.notice_timer = max(0.0, self.notice_timer - dt)
         self._update_waves(dt)
+        if self.state != "playing":
+            return
+        self.carrot.update(dt, self)
         for group in (self.fruits, self.monsters, self.bullets,
                       self.rocks, self.effects):
             for e in group:
@@ -273,7 +276,7 @@ class Game:
         if cell is None:
             return "请在草地区域建造"
         if self.selected not in C.FRUITS:
-            return "请先选择下方的水果卡片"
+            return "请先选择下方的防御塔卡片"
         if cell == self.carrot_tile:
             return "这里是萝卜的位置，不能建造"
         if cell in self.path_cells:

@@ -124,7 +124,7 @@ class GameUI:
         pygame.draw.rect(overlay, (*color, 55), rect, border_radius=5)
         pygame.draw.rect(overlay, (*color, 230), rect, 2, border_radius=5)
         if g.selected:
-            ghost = fruit_image(kind).copy()
+            ghost = fruit_image(kind, 48).copy()
             ghost.set_alpha(150)
             overlay.blit(ghost, ghost.get_rect(center=(x, y)))
         g.screen.blit(overlay, (0, C.HUD_H))
@@ -160,15 +160,15 @@ class GameUI:
         for i, kind in enumerate(('apple', 'orange', 'melon')):
             sprite = fruit_image(kind, 28)
             g.screen.blit(sprite, sprite.get_rect(center=(367 + i * 33, 138)))
-        titles = {'menu': '保卫萝卜 · 水果防线', 'paused': '休息一下，防线已暂停',
-                  'levelclear': '花园守住了！', 'won': '两关通关，守护成功！', 'lost': '萝卜失守了'}
+        titles = {'menu': C.TITLE, 'paused': '休息一下，防线已暂停',
+                  'levelclear': '云径守住了！', 'won': '两关通关，守护成功！', 'lost': '萝卜失守了'}
         self.text(titles[g.state], (400, 181), 38, (43, 77, 44))
         if g.state == 'menu':
-            lines = ('两张地图 · 三种水果 · 四类来袭怪物',
+            lines = ('两张地图 · 三种防御塔 · 四类来袭怪物',
                      '1–3 或点击卡片选塔，左键建造，右键取消',
                      '击杀获得金币与积分，漏怪只扣萝卜生命',
                      'I 查看图鉴，P 暂停；Esc 暂停或返回菜单')
-            primary, secondary = '开始挑战  [Enter]', '水果与怪物图鉴  [I]'
+            primary, secondary = '开始挑战  [Enter]', '防御塔与怪物图鉴  [I]'
         else:
             lines = (C.LEVELS[g.level_index]['name'],
                      f'累计积分 {g.score}    击杀 {g.kills}    金币 {g.coins}',

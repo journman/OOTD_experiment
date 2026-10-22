@@ -1,4 +1,35 @@
-# Generated game artwork
+# Game artwork
+
+## Active original-game resources (2026-10-22)
+
+The game now loads the original Carrot Fantasy graphics mirrored in
+[JezaChen/CarrotGuardGame](https://github.com/JezaChen/CarrotGuardGame/tree/478f66092f994b95408fa130e8b0418af4f9828f/Resources/Themes).
+This is a third-party recreation, not an official publisher download.
+The PNG and plist files in `original/` are copied unchanged. Each source path,
+pinned commit and Git blob SHA is recorded in `original/source-manifest.json`.
+See the repository's THIRD_PARTY_NOTICES.md for ownership information.
+
+- TBottle/TFan: three original attack poses and the resting pose.
+- TSun: original centre sprite and five attack halo frames.
+- Monsters01: two distinct poses for each of four monsters; the original frames
+  change silhouette, wings and limbs. They are not static images with a scale effect.
+- Items01: original carrot and expression frames.
+- Theme1/Theme2 BG0: original sky/jungle backdrops.
+- Theme1/Theme2 BG1: road textures sampled at runtime and arranged along the
+  existing game path; the original map's baked route is not used as our route.
+
+`art.py` restores TexturePacker rotation, source canvas and trim position before
+scaling. Keeping the source canvas avoids jitter between animation frames.
+`animation.py` advances frames only from `update(dt)`. Drawing, pause, menus and
+the guide do not advance simulation time. No GIF decoder or new runtime dependency
+is required; the GIF under docs/screenshots is a preview of actual gameplay.
+
+The course's legacy class/registry IDs remain `Apple/apple`, `Orange/orange`,
+`Melon/melon`; they display bottle, fan and sun graphics respectively. This change
+does not implement the original commercial game's tower skills: existing costs,
+projectile damage, area damage, ranges, rewards and wave composition are retained.
+
+## Previous generated artwork (retained, no longer displayed)
 
 Created for this project with the built-in image_gen tool on 2026-10-21. Original generated PNGs are retained unchanged; runtime code extracts sprite regions, preserves transparency and scales to the game's existing cells. The terrain art contains no paths; scenery.py draws paths from config.py. No combat rules or collision sizes are encoded in these images.
 

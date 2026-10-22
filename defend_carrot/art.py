@@ -1,23 +1,39 @@
-"""Cached procedural fruit art, shared by towers, cards and placement previews."""
+"""Original-game TexturePacker atlases, shared by entities and interface icons."""
 from functools import lru_cache
 from pathlib import Path
+import plistlib
+import re
 
 import pygame
 
 import config as C
 
 ASSET_DIR = Path(__file__).resolve().parent / 'assets'
-# Pixel regions of the original 1774x887 sheet. Wings and leaves extend beyond
-# nominal grid boundaries, so explicit regions keep entire silhouettes intact.
-CHARACTERS = {
-    'apple': (43, 49, 379, 391), 'orange': (467, 65, 411, 376),
-    'melon': (913, 68, 463, 376), 'carrot': (1400, 12, 331, 434),
-    'slime': (26, 489, 390, 356), 'bat': (422, 501, 506, 300),
-    'golem': (929, 472, 474, 382), 'thrower': (1425, 460, 309, 386),
+TOWER_ATLASES = {
+    'apple': 'Themes/Towers/TBottle-hd',
+    'orange': 'Themes/Towers/TFan-hd',
+    'melon': 'Themes/Towers/TSun-hd',
 }
+MONSTER_ATLAS = 'Themes/Theme1/Items/Monsters01-hd'
+CARROT_ATLAS = 'Themes/Items/Items01-hd'
+WALK_FRAMES = {
+    'slime': ('land_pink01.png', 'land_pink02.png'),
+    'bat': ('fly_blue01.png', 'fly_blue02.png'),
+    'golem': ('fat_green01.png', 'fat_green02.png'),
+    'thrower': ('land_nima01.png', 'land_nima02.png'),
+}
+ATTACK_FRAMES = {
+    'apple': ('Bottle11.png', 'Bottle12.png', 'Bottle13.png', 'Bottle11.png'),
+    'orange': ('Fan11.png', 'Fan12.png', 'Fan13.png', 'Fan11.png'),
+    # Sun uses a separate expanding attack layer over its static centre.
+    'melon': tuple(f'PSun1{i}.png' for i in range(1, 6)),
+}
+IDLE_FRAMES = {'apple': 'Bottle11.png', 'orange': 'Fan11.png', 'melon': 'Sun11.png'}
+CARROT_FRAMES = ('hlb10.png', 'hlb21.png', 'hlb22.png', 'hlb10.png')
+CHARACTERS = (*TOWER_ATLASES, *WALK_FRAMES, 'carrot')
 
 
-@lru_cache(maxsize=4)
+@lru_cache(maxsize=20)
 def load_image(name):
     path = ASSET_DIR / name
     if not path.is_file():
@@ -25,24 +41,67 @@ def load_image(name):
     return pygame.image.load(str(path))
 
 
-@lru_cache(maxsize=96)
-def character_image(kind, size=40, flash=False):
-    atlas = load_image('character-atlas.png')
-    if atlas is None:
+def _numbers(value):
+    return tuple(map(int, re.findall(r'-?\d+', value)))
+
+
+@lru_cache(maxsize=12)
+def atlas_data(base):
+    path = ASSET_DIR / 'original' / (base + '.plist')
+    if not path.is_file():
         return None
-    cell = atlas.subsurface(pygame.Rect(CHARACTERS[kind]))
-    bounds = cell.get_bounding_rect(min_alpha=12)
-    if not bounds.w or not bounds.h:
+    with path.open('rb') as stream:
+        return plistlib.load(stream)['frames']
+
+
+@lru_cache(maxsize=128)
+def atlas_frame(base, name):
+    """Undo packed rotation and restore the source canvas and trim offset.
+
+    Frames retain their common source canvas, so feet and leaves stay aligned
+    across poses. In format 2, the stored width/height are unrotated dimensions.
+    """
+    data = atlas_data(base)
+    atlas = load_image('original/' + base + '.png')
+    if data is None or atlas is None or name not in data:
         return None
-    sprite = cell.subsurface(bounds)
-    scale = (size - 2) / max(bounds.size)
-    dimensions = (max(1, round(bounds.w * scale)), max(1, round(bounds.h * scale)))
+    spec = data[name]
+    x, y, w, h = _numbers(spec['frame'])
+    packed = (h, w) if spec['rotated'] else (w, h)
+    sprite = atlas.subsurface((x, y, *packed))
+    if spec['rotated']:
+        sprite = pygame.transform.rotate(sprite, 90)
+    image = pygame.Surface(_numbers(spec['sourceSize']), pygame.SRCALPHA)
+    left, top, _, _ = _numbers(spec['sourceColorRect'])
+    image.blit(sprite, (left, top))
+    return image
+
+
+@lru_cache(maxsize=256)
+def sprite_image(base, name, size=40, flash=False, flip=False):
+    frame = atlas_frame(base, name)
+    if frame is None:
+        return None
+    scale = size / max(frame.get_size())
+    dimensions = tuple(max(1, round(value * scale)) for value in frame.get_size())
     image = pygame.Surface((size, size), pygame.SRCALPHA)
-    sprite = pygame.transform.smoothscale(sprite, dimensions)
+    sprite = pygame.transform.smoothscale(frame, dimensions)
+    if flip:
+        sprite = pygame.transform.flip(sprite, True, False)
     if flash:
         sprite.fill((80, 80, 80), special_flags=pygame.BLEND_RGB_ADD)
     image.blit(sprite, sprite.get_rect(center=(size // 2, size // 2)))
     return image
+
+
+def character_image(kind, size=40, flash=False, frame=None, flip=False):
+    if kind in TOWER_ATLASES:
+        base, default = TOWER_ATLASES[kind], IDLE_FRAMES[kind]
+    elif kind in WALK_FRAMES:
+        base, default = MONSTER_ATLAS, WALK_FRAMES[kind][0]
+    else:
+        base, default = CARROT_ATLAS, CARROT_FRAMES[0]
+    return sprite_image(base, frame or default, size, flash, flip)
 
 
 def fruit_image(kind, size=40, flash=False):

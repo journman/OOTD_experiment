@@ -1,12 +1,11 @@
-"""Cached painted terrain with roads drawn from the exact gameplay waypoints."""
+"""Original backgrounds and road textures adapted to the gameplay waypoints."""
 from functools import lru_cache
 import math
-import random
 
 import pygame
 
 import config as C
-from art import load_image
+from art import load_image, atlas_frame
 
 
 def _round_path(surface, color, points, width):
@@ -19,33 +18,42 @@ def _round_path(surface, color, points, width):
 def field_image(index):
     level = C.LEVELS[index]
     image = pygame.Surface((C.FIELD_W, C.FIELD_H))
-    terrain = load_image('garden-ground.png' if index == 0 else 'forest-ground.png')
+    theme = index + 1
+    terrain = atlas_frame(f'Themes/Theme{theme}/BG0/BG1-hd', 'BG1.png')
     if terrain is not None:
         image.blit(pygame.transform.smoothscale(terrain, image.get_size()), (0, 0))
     else:
         image.fill(level['grass'][0])
     points = [(col * C.TILE + C.TILE // 2, row * C.TILE + C.TILE // 2)
               for col, row in level['path']]
-    shadow = [(x, y + 3) for x, y in points]
-    _round_path(image, (87, 91, 53), shadow, C.TILE + 7)
-    _round_path(image, (156, 126, 78), points, C.TILE + 3)
-    _round_path(image, (222, 196, 147), points, C.TILE - 2)
-    _round_path(image, (233, 211, 168), points, C.TILE - 11)
-    rng = random.Random(2026 + index)
-    for start, end in zip(points, points[1:]):
-        distance = math.dist(start, end)
-        ux, uy = ((end[0] - start[0]) / distance, (end[1] - start[1]) / distance)
-        for step in range(12, round(distance), 20):
-            side = rng.choice((-1, 1)) * rng.randint(11, 15)
-            x = round(start[0] + ux * step - uy * side)
-            y = round(start[1] + uy * step + ux * side)
-            pygame.draw.ellipse(image, (186, 161, 115), (x, y, 5, 3))
-            pygame.draw.line(image, (242, 224, 184), (x, y), (x + 3, y))
+    road = load_image(f'original/Themes/Theme{theme}/BG1/BG-hd.png')
+    if road is not None and index == 0:
+        # Only scenery is copied from the old map; its baked route is never
+        # displayed beneath our different, interactive route.
+        decorations = ((0, 330, 310, 152), (705, 330, 255, 152))
+        for i, area in enumerate(decorations):
+            piece = road.subsurface(area)
+            piece = pygame.transform.smoothscale(piece, (180, 90))
+            image.blit(piece, (0 if i == 0 else C.FIELD_W - 180, C.FIELD_H - 90))
+    edge, fill = ((80, 181, 220), (216, 247, 255)) if index == 0 else (
+        (128, 177, 20), (192, 144, 0))
+    _round_path(image, edge, points, C.TILE + 8)
+    _round_path(image, fill, points, C.TILE - 2)
+    if road is not None:
+        # Sample an original straight road tile, including its painted edges.
+        area = (180, 240, 80, 80) if index == 0 else (100, 0, 100, 100)
+        tile = pygame.transform.smoothscale(road.subsurface(area), (C.TILE, C.TILE + 8))
+        for start, end in zip(points, points[1:]):
+            distance = math.dist(start, end)
+            ux, uy = ((end[0] - start[0]) / distance, (end[1] - start[1]) / distance)
+            piece = tile if ux else pygame.transform.rotate(tile, 90)
+            for step in range(C.TILE // 2, round(distance), C.TILE):
+                center = (round(start[0] + ux * step), round(start[1] + uy * step))
+                image.blit(piece, piece.get_rect(center=center))
     # The endpoint and entrance cues occupy their real path cells.
     x, y = points[-1]
-    pygame.draw.ellipse(image, (145, 110, 56), (x - 23, y - 15, 46, 32))
-    pygame.draw.ellipse(image, (232, 196, 105), (x - 21, y - 15, 42, 27))
-    pygame.draw.ellipse(image, (250, 225, 154), (x - 17, y - 12, 34, 20), 2)
+    pygame.draw.ellipse(image, edge, (x - 23, y - 15, 46, 32))
+    pygame.draw.ellipse(image, fill, (x - 21, y - 15, 42, 27))
     x, y = points[0]
     dx, dy = points[1][0] - x, points[1][1] - y
     x, y = max(13, min(C.FIELD_W - 14, x)), max(13, min(C.FIELD_H - 14, y))
