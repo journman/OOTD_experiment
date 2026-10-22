@@ -129,6 +129,7 @@ class Game:
 
     # ---------------------------------------------------------------- update
     def update(self, dt: float) -> None:
+        self.ui.update(dt)
         if self.state != "playing" or self.guide_open or self.level_select_open:
             return
         dt *= self.speed_multiplier
@@ -246,6 +247,9 @@ class Game:
             if event.type == pygame.KEYDOWN and event.key in (pygame.K_ESCAPE, pygame.K_l):
                 self.level_select_open = False
             elif event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
+                if self.ui.back_rect.collidepoint(event.pos):
+                    self.level_select_open = False
+                    return
                 for i in range(len(C.LEVELS)):
                     if self.ui.level_rect(i).collidepoint(event.pos) and i < self.progress['unlocked']:
                         self.reset(i)
@@ -303,7 +307,7 @@ class Game:
                     else:
                         self.show_notice(f'第{C.FRUITS[kind]["unlock"]}关开放此塔')
         if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
-            if self.guide.button_rect.collidepoint(event.pos):
+            if self.state != 'menu' and self.guide.button_rect.collidepoint(event.pos):
                 self.guide_open = True
                 return
             if self.state != "playing":
@@ -390,6 +394,17 @@ class Game:
 
     # ------------------------------------------------------------------ draw
     def draw(self) -> None:
+        if self.level_select_open:
+            self.ui.draw_level_select()
+        elif self.guide_open:
+            self.guide.draw(self.screen, self.ui.time)
+        elif self.state == 'menu':
+            self.ui.draw_menu()
+        else:
+            self._draw_battle()
+        pygame.display.flip()
+
+    def _draw_battle(self) -> None:
         self.screen.fill(C.LEVELS[self.level_index]["grass"][0])
         self._draw_field()
         if self.state == "playing" and not self.guide_open:
@@ -406,11 +421,6 @@ class Game:
         else:
             self.ui.button(self.ui.pause_rect, "暂停 [P]")
         self.guide.draw_button(self.screen)
-        if self.guide_open:
-            self.guide.draw(self.screen)
-        if self.level_select_open:
-            self.ui.draw_level_select()
-        pygame.display.flip()
 
     def _draw_field(self) -> None:
         self.screen.blit(field_image(self.level_index), (0, C.HUD_H))

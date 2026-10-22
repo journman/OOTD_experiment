@@ -11,7 +11,7 @@ See the repository's THIRD_PARTY_NOTICES.md for ownership information.
 
 - TBottle/TFan: three original attack poses and the resting pose.
 - TSun: original centre sprite and five attack halo frames.
-- Monsters01: two distinct poses for each of four monsters; the original frames
+- Monsters01: two distinct poses for each of eight monsters; the original frames
   change silhouette, wings and limbs. They are not static images with a scale effect.
 - Items01: original carrot and expression frames.
 - Theme1/Theme2 BG0: original sky/jungle backdrops.
@@ -55,6 +55,16 @@ The course's legacy class/registry IDs remain `Apple/apple`, `Orange/orange`,
 tower roles are now implemented, including fan piercing and sun area attacks.
 See `defend_carrot/EXPANSION.md` for the original in-game help reference, authored
 stage schedules, three-life balance and persistence behavior.
+
+## Menu and interface presentation (2026-10-22)
+
+`presentation.py` shares cartoon panels, bevelled buttons, leaves, clouds and
+garden banks drawn in pygame. The menu reuses the original sky texture and
+carrot/monster/tower sprites; level cards preview the actual authored routes.
+These layouts and decorative shapes are project UI work, not copied commercial
+menu screens. No additional image downloads or runtime dependencies are needed.
+The guide previews and home-screen decorations use `GameUI.time`, independent
+of combat and its speed multiplier. Drawing never advances either clock.
 
 ## Previous generated artwork (retained, no longer displayed)
 

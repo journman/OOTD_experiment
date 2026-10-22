@@ -58,9 +58,10 @@ Windows 10/11 64 位：解压后双击对应 `.exe`；不需要安装 Python、p
 - 点击已建炮塔查看射程和属性；`U` 或按钮升级，最高三级；`Delete` 或按钮出售，返还建造及升级总投入的80%。升级使用对应级别的原版图像与动作。
 - 瓶子炮单体速射、风扇直线穿透、太阳周身群攻；后续增加星星溅射、冰冻星星减速、毒针持续毒伤、火箭穿透爆炸、雪花周身冰冻。怪物包含普通、飞行、厚血精英和末波巨怪，均使用原版序列帧。
 - 萝卜始终只有 **3 血**，每只漏怪扣 **1 血**，第三只漏怪立即失败。3血、2血、1血分别展示完整、受损、濒危的原版造型；进入下一关恢复3血。
-- `Tab` / 速度按钮切换1倍、2倍速；`P` 暂停。`I` 打开图鉴，图鉴内 `Tab` 切换炮塔/怪物；暂停和图鉴冻结计时、状态效果及动画。`Esc` 暂停或返回菜单，主菜单 `Esc` 退出。
+- `Tab` / 速度按钮切换1倍、2倍速；`P` 暂停。`I` 打开图鉴，图鉴内 `Tab` 切换炮塔/怪物；暂停和图鉴冻结战斗计时、状态效果及战斗动画。`Esc` 暂停或返回菜单，主菜单 `Esc` 退出。
 - 关卡解锁及最佳剩余生命自动写入 `defend_carrot/progress.json`，重启可继续选择；正在进行的战斗不保存。EXE版存于 `%LOCALAPPDATA%/OODTMiniGames/DefendCarrot/progress.json`。与植物大战僵尸存档独立，发布代码不包含个人进度。
 - 地图道路连续绘制并使用原版纹理，转角保持完整；角色采用放大后的显示尺寸。来源与旧素材说明见 [美术资源说明](defend_carrot/assets/ART_NOTES.md) 和 [第三方素材声明](THIRD_PARTY_NOTICES.md)。
+- 主菜单使用原版天空背景与角色，加入眨眼、怪物动作、漂浮光点和炮塔展示。冒险地图显示八关真实路线预览、解锁锁扣与最佳血量星标；左上角按钮或 `Esc` / `L` 返回。图鉴采用手册卡片，暂停与结算显示绶带、萝卜状态及成绩；按钮有悬停、按下和不可升级提示。界面动效独立于战斗计时。
 
 ## 截图
 
@@ -69,6 +70,8 @@ Windows 10/11 64 位：解压后双击对应 `.exe`；不需要安装 Python、p
 ![植物大战僵尸菜单](docs/screenshots/pvz-menu.png)
 ![植物大战僵尸关卡地图](docs/screenshots/pvz-map.png)
 ![植物大战僵尸夜战](docs/screenshots/pvz-night.png)
+![保卫萝卜主菜单](docs/screenshots/carrot-menu.png)
+![保卫萝卜冒险地图](docs/screenshots/carrot-map.png)
 ![保卫萝卜后期关卡](docs/screenshots/defend-carrot.png)
 ![保卫萝卜八关路线](docs/screenshots/carrot-campaign.png)
 ![保卫萝卜炮塔图鉴](docs/screenshots/carrot-towers.png)
@@ -105,10 +108,11 @@ python plants_vs_zombies/tests/test_expansion.py
 python defend_carrot/tests/test_smoke.py
 python defend_carrot/tests/test_rules.py
 python defend_carrot/tests/test_ui_flow.py
+python defend_carrot/tests/test_presentation.py
 python defend_carrot/tests/test_placement.py
 ```
 
-完整植物大战僵尸战斗测试可通过 `python tools/test_source.py` 运行，测试存档隔离在临时目录中。
+两个游戏的完整回归测试可通过 `python tools/test_source.py` 运行，测试存档隔离在临时目录中。
 
 ## 自行生成 Windows EXE
 
@@ -127,6 +131,7 @@ python tools/build_windows.py
 - 具体植物 / 水果 / 怪物类：封装各自行为，用继承和多态组织对象。
 - `Game`：协调实体、输入、经济、关卡与胜负状态。
 - 植物大战僵尸的 `assets.py` 与 `garden_ui.py`：集中管理素材与界面表现。
+- 保卫萝卜的 `ui.py`、`guide.py` 与 `presentation.py`：管理菜单、图鉴、场景装饰和通用控件；界面时钟与战斗模拟独立。
 
 ## 素材来源
 
